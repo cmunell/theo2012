@@ -1,5 +1,8 @@
 package edu.cmu.ml.rtw.theo2012;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Abstract base class that provides some conveniences for typical {@link RTWValue} implementations<p>
  *
@@ -40,12 +43,12 @@ public abstract class RTWValueBase implements RTWValue {
     @Override public boolean asBoolean() {
         throw new RuntimeException(this.getClass().getName() + " cannot be converted to a Boolean");
     }
-
-    @Override public Object clone() throws CloneNotSupportedException { 
-        RTWValue clone = (RTWValue)super.clone(); 
-        return clone;
-    }
-
+    
+    @Override public Object clone() throws CloneNotSupportedException {  
+        RTWValue clone = (RTWValue)super.clone();  
+        return clone; 
+    } 
+ 
     /**
      * This returns a negative value if o1 is less than o2, zero if they are considered to be equal,
      * and a positive value if o1 is greater than o2, thereby defining an ordering over all values
