@@ -635,19 +635,18 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
 
     /**
      * Testing fixture
-     */
-    /*
+     *
      * bkdb TODO: move things like this elsewhere or at least remove dependencies on things like KbMLocation
-
+     */
     public static void main(String args[]) throws Exception {
         try {
             String filename = args[0];
-            StringListSuperStore store = new StringListSuperStore(new TCHStoreMap());
+            StringListSuperStore store = new StringListSuperStore(new MapDBStoreMap());
             store.open(filename, false);
 
             String cmd = args[1];
             String locstr = args[2];
-            RTWLocation loc = new KbMLocation();
+            RTWLocation loc = new AbstractRTWLocation();
             for (String s : locstr.split(" ")) {
                 if (s.charAt(0) == '@') loc = loc.element(new RTWPointerValue(store.getLoc(s.substring(1))));
                 else loc = loc.subslot(s);
@@ -717,6 +716,5 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
             System.exit(2);
         }
     }
-    */
 }
 
