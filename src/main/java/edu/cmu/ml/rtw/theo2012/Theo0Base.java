@@ -5,6 +5,10 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
+import edu.cmu.ml.rtw.util.Logger;
+import edu.cmu.ml.rtw.util.LogFactory;
+import edu.cmu.ml.rtw.util.Pair;
+
 /**
  * Abstract base class for {@link Theo0} implementations that implements all of the convenience and
  * library-style methods in terms of a small set of primitives.<p>
