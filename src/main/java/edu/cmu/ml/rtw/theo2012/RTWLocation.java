@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-/**
+ /**
  * Interface that extends an {@link RTWBag} to include a location (specifically, a location in a KB)
  * of that bag of values.
  *
