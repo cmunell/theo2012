@@ -389,7 +389,7 @@ public interface RTWValue extends Cloneable, Comparable<RTWValue> {
                 } catch (Exception e) {
                     throw new RuntimeException("After having built " + list, e);
                 }
-                return new RTWImmutableListValue(list);
+                return RTWImmutableListValue.copy(list);
             }
             else if (bytes[offset] == 'p') {
                 // This is similar to the case of lists
