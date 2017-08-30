@@ -37,9 +37,9 @@ public class TheoExample {
         //
         // We want to start from an empty KB so that we don't get tripped up on any pre-existing
         // content, so we'll delete it first.
-        String kbName = "TheoExample.mdb";
-        if (true) throw new RuntimeException("bkdb: fix this: FileUtility.deleteFileOrDirectory(kbName);");
-        kb = BasicTheo2.openKB(kbName, false);  // bkdb: Use TheoFactory
+        File kbName = new File("TheoExample.mdb");
+        kbName.delete();
+        kb = TheoFactory.open(kbName, false, true); 
 
         // Create some some person entities.  Entities must exist before than can be used or otherwise
         // referred to.

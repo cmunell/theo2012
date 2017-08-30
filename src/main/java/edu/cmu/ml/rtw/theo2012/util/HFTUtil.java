@@ -32,19 +32,15 @@ import edu.cmu.ml.rtw.theo2012.core.*;
  *
  * In keeping with a number of our other classes, this will automatically gzip or ungzip the HFT
  * file if the filename ends in ".gz".  Maybe that's a bit ghetto, but it's convenient.
- *
- * FODO: This definition of an HFT file effectively makes it a Theo commands file, but there isn't
- * the time or need for a massive refactor.  That would probably happen when we decided to supercede
- * the existing set of Theo commands.
  */
 public class HFTUtil {
     private final static Logger log = LogFactory.getLogger();
-    protected Theo0 kb;
+    protected Theo2 kb;
 
     /**
      * Constructor associating this HFTUtil instance with a particular KB
      */
-    public HFTUtil(Theo0 kb) {
+    public HFTUtil(Theo2 kb) {
         this.kb = kb;
     }
 

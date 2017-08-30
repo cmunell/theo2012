@@ -1,5 +1,6 @@
 package edu.cmu.ml.rtw.theo2012.core;
 
+import java.io.File;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -960,7 +961,7 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
     }
 
     /**
-     * Protected constructor -- use openKB to obtain an instance
+     * Protected constructor -- use {@link TheoFactory} to obtain an instance
      */
     protected BasicTheo2(Theo1 t1) {
         // We don't actually have a properties file of our own yet.  The only properties that we're
@@ -1105,15 +1106,6 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
         nrofvaluesCache.clear();
         domainCache.clear();
         rangeCache.clear();
-    }
-
-    /**
-     * Obtain a BasicTheo2 instance given the name of a KB<p>
-     *
-     * FODO: Fix all this stuff up after TheoFactory is more mature<p>
-     */
-    public static BasicTheo2 openKB(String filename, boolean readOnly) {
-        return new BasicTheo2(TheoFactory.openTheo1(filename, readOnly, true, null));
     }
 
     /**
@@ -1326,7 +1318,7 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
      * Ad-hoc testing fixture
      */
     public static void main(String[] args) throws Exception {
-        BasicTheo2 t2 = openKB(args[0], false);
+        BasicTheo2 t2 = new BasicTheo2(TheoFactory.openTheo1(args[0], false, true, null));
 
         if (false) {
             Entity e = t2.get("bob");

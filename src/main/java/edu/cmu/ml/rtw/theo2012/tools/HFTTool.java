@@ -36,16 +36,9 @@ import edu.cmu.ml.rtw.theo2012.util.HFTUtil;
 public class HFTTool {
     private final static Logger log = LogFactory.getLogger();
 
-    protected void importHFT(String hftFile, String kbLocation, String defaultFormat) {
+    protected void importHFT(String hftFile, String kbLocation, List<String> options) {
         try {
-            // Special case for testing N4JTheo0 outside of a Theo1 wrapper
-            Theo0 kb;
-            if (defaultFormat != null && defaultFormat.equals("n4j0")) {
-                //bkdb is't this done with TheoFactory now? kb = new N4JTheo0(kbLocation, false, true);
-                kb = null;
-            } else {
-                kb = TheoFactory.openTheo1(kbLocation, false, true, defaultFormat);
-            }
+            Theo2 kb = TheoFactory.open(kbLocation, false, true, options);
 
             HFTUtil hftUtil = new HFTUtil(kb);
             hftUtil.importHFT0(hftFile);
@@ -53,20 +46,13 @@ public class HFTTool {
             kb.close();
         } catch (Exception e) {
             throw new RuntimeException("importHFT(" + hftFile + ", " + kbLocation + ", "
-                    + defaultFormat + ")", e);
+                    + options + ")", e);
         }
     }
 
-    protected void exportHFT(String hftFile, String kbLocation, String defaultFormat) {
+    protected void exportHFT(String hftFile, String kbLocation, List<String> options) {
         try {
-            // Special case for testing N4JTheo0 outside of a Theo1 wrapper
-            Theo0 kb;
-            if (defaultFormat != null && defaultFormat.equals("n4j0")) {
-                // bkdb isn't this done with TheoFactory now? kb = new N4JTheo0(kbLocation, false, true);
-                kb = null;
-            } else {
-                kb = TheoFactory.openTheo1(kbLocation, true, false, defaultFormat);
-            }
+            Theo2 kb = TheoFactory.open(kbLocation, true, false, options);
             
             HFTUtil hftUtil = new HFTUtil(kb);
             hftUtil.exportHFT0(hftFile);
@@ -203,9 +189,9 @@ public class HFTTool {
         // We'll let the handler for each command worry about opening files and suchlike.  We can
         // refactor some of that back here if/when there are more commands with more commonality.
         if (cmd.equals("import")) {
-            importHFT(hftFile, kbLocation, kbFormat);
+            importHFT(hftFile, kbLocation, null);
         } else if (cmd.equals("export")) {
-            exportHFT(hftFile, kbLocation, kbFormat);
+            exportHFT(hftFile, kbLocation, null);
         } else {
             throw new RuntimeException("Unrecognized command \"" + cmd + "\"");
         }
