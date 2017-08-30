@@ -21,8 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import gnu.getopt.*;
-
 import edu.cmu.ml.rtw.util.Logger;
 import edu.cmu.ml.rtw.util.LogFactory;
 import edu.cmu.ml.rtw.util.Timer;
@@ -131,46 +129,17 @@ public class HFTTool {
         String cmd = null;
         String hftFile = null;
         String kbLocation = null;
-        String kbFormat = null;
+        List<String> options = new ArrayList<String>();
 
-        // Parse command line options
-        StringBuffer longbuffer = new StringBuffer();
-        LongOpt[] longopts = new LongOpt[2];
-        longopts[0] = new LongOpt("help", LongOpt.NO_ARGUMENT, null, 'h');
-        longopts[1] = new LongOpt("kbformat", LongOpt.REQUIRED_ARGUMENT, longbuffer, 1);
-        Getopt g = new Getopt(progname, args, "h", longopts);
-        int c;
-        while ((c = g.getopt()) != -1)
-            switch (c) {
-            case 'h':
-                Usage(progname);
-                System.exit(0);
-
-            case 0:
-                // Our universal long option indicator.  Check longbuffer to find out which one --
-                // it will be the string version of 4th argument in the LongOpt constructor.
-                if (longbuffer.toString().equals("1")) {
-                    kbFormat = g.getOptarg();
-                } else {
-                    throw new RuntimeException("Internal Error: Unrecognized LongOpt id '"
-                            + longbuffer + "' from getopt");
+        // Parse command line options (quick and dirty to avoid adding more 3rd-party dependencies)
+        for (String arg : args) {
+            if (arg.startsWith("-")) {
+                if (arg.equals("-h") || arg.equals("--help")) {
+                    Usage(progname);
+                    System.exit(0);
                 }
-                break;
-
-            case '?':
-                // Parsing error about which g has already complained.
-                System.exit(1);
-
-            default:
-                throw new RuntimeException("Internal Error: Unforseen return '" + (char)c
-                        + "' from getopt");
-            }
-
-            
-        // Eat up the rest of the command line
-        for (int i = g.getOptind(); i < args.length ; i++) {
-            String arg = args[i];
-            if (cmd == null) {
+                options.add(arg);
+            } else if (cmd == null) {
                 cmd = arg;
             } else if (hftFile == null) {
                 hftFile = arg;
@@ -189,9 +158,9 @@ public class HFTTool {
         // We'll let the handler for each command worry about opening files and suchlike.  We can
         // refactor some of that back here if/when there are more commands with more commonality.
         if (cmd.equals("import")) {
-            importHFT(hftFile, kbLocation, null);
+            importHFT(hftFile, kbLocation, options);
         } else if (cmd.equals("export")) {
-            exportHFT(hftFile, kbLocation, null);
+            exportHFT(hftFile, kbLocation, options);
         } else {
             throw new RuntimeException("Unrecognized command \"" + cmd + "\"");
         }
