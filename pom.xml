@@ -25,7 +25,7 @@
  <dependencies>
    <dependency>
      <groupId>edu.cmu.ml.rtw</groupId>
-     <artifactId>util</artifactId>
+     <artifactId>rtw-util</artifactId>
      <version>0.0.1</version>
    </dependency>
    <dependency>
