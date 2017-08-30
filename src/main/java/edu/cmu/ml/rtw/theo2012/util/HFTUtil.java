@@ -436,7 +436,14 @@ public class HFTUtil {
         }
     }
 
-    public void exportHFT0(PrintStream out) {
+    /**
+     * Export HFT0 recursing along the generalizations hierarchy starting at the primitive entity
+     * given by root.<p>
+     *
+     * TODO: actually this needs to be done more carefully so that only the slots needed are
+     * included.<p>
+     */
+    protected void exportHFT0(PrintStream out, String root) {
         try {
             numPEs = 0;
             totalPEs = 0;
@@ -449,22 +456,31 @@ public class HFTUtil {
             log.debug("Detected slave slots: " + slaveSlots);
             
             // First all generalizations.  Then reset and do the full thing.
-            log.info("Exporting generalizations hierarchy...");
+            log.info("Exporting generalizations hierarchy starting at " + root + "...");
             exportHFT0PrimitiveOnly(out, kb.getPrimitiveEntity("everything"));
-            log.info("There are " + totalPEs + " primitive entities in the KB.");
+            log.info("There are " + totalPEs + " primitive entities in the KB to export.");
             exportedEntities.clear();
             log.info("Exporting everything else...");
-            exportHFT0Primitive(out, kb.getPrimitiveEntity("everything"));
+            exportHFT0Primitive(out, kb.getPrimitiveEntity(root));
             log.info("Done exporting!");
 
             out.println("HFTEND");
             out.close();
         } catch (Exception e) {
-            throw new RuntimeException("exportHFT0(<out>)", e);
+            throw new RuntimeException("exportHFT0(<out>, \"" + root + "\")", e);
         }
     }
 
-    public void exportHFT0(String filename) {
+    /**
+     * Export HFT0 recursing along the generalizations hierarchy starting at the primitive entity
+     * given by root.<p>
+     *
+     * If the given filenae ends in ".gz" the output will be gzipped.<p>
+     *
+     * TODO: actually this needs to be done more carefully so that only the slots needed are
+     * included.<p>
+     */
+    protected void exportHFT0(String filename, String root) {
         try {
             // FODO: I guess we should have an AsyncOutputStream for cases like this one
             PrintStream out;
@@ -473,9 +489,25 @@ public class HFTUtil {
             } else {
                 out = new PrintStream(new FileOutputStream(filename));
             }
-            exportHFT0(out);
+            exportHFT0(out, root);
         } catch (Exception e) {
-            throw new RuntimeException("exportHFT0(\"" + filename + "\")", e);
+            throw new RuntimeException("exportHFT0(\"" + filename + "\", \"" + root + "\")", e);
         }
+    }
+
+    /**
+     * Export the entire KB as HFT0
+     */
+    public void exportHFT0(PrintStream out) {
+        exportHFT0(out, "everything");
+    }
+
+    /**
+     * Export the entire KB as HFT0<p>
+     *
+     * If the given filenae ends in ".gz" the output will be gzipped.
+     */
+    public void exportHFT0(String filename) {
+        exportHFT0(filename, "everything");
     }
 }
