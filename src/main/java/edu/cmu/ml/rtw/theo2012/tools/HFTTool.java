@@ -78,7 +78,7 @@ public class HFTTool {
         // to be the "standard" 80 column width.  It's like punchcards and FORTRAN all over again!
         //
         System.out.print(
-                "Commandline access to things to do with sentences                               \n" +
+                "Commandline access to things to do with HFT files                               \n" +
                 "                                                                                \n" +
                 "Usage:                                                                          \n" +
                 " " + progname + " [--kbformat=<kbformat>] <cmd> <hftfile> <kbloc>               \n" +
@@ -175,6 +175,7 @@ public class HFTTool {
             me.run(args);
         } catch (Exception e) {
             log.fatal("Uncaught exception", e);
+            System.err.println("Exception: " + e.getMessage());
             System.exit(2);
         }
     }

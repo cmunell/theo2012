@@ -88,10 +88,10 @@ public class TheoTool {
 
     protected void ents(PrintStream out, String indent, Entity e) {
         if (e.isPrimitiveEntity()) {
-            out.print(indent + e.toPrimitiveEntity().getName());
+            out.println(indent + e.toPrimitiveEntity().getName());
             indent = indent + "  ";
             for (Entity s : e.getQuery("specializations").entityIter())
-                ents(out, indent, e);
+                ents(out, indent, s);
         }
     }
 
@@ -274,10 +274,11 @@ public class TheoTool {
      */
     public static void main(String[] args) throws Exception {
         try {
-            HFTTool me = new HFTTool();
+            TheoTool me = new TheoTool();
             me.run(args);
         } catch (Exception e) {
             log.fatal("Uncaught exception", e);
+            System.err.println("Exception: " + e.getMessage());
             System.exit(2);
         }
     }
