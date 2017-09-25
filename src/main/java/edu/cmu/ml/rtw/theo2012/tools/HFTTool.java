@@ -35,29 +35,31 @@ public class HFTTool {
     private final static Logger log = LogFactory.getLogger();
 
     protected void importHFT(String hftFile, String kbLocation, List<String> options) {
+        Theo2 kb = null;
         try {
-            Theo2 kb = TheoFactory.open(kbLocation, false, true, options);
+            kb = TheoFactory.open(kbLocation, false, true, options);
 
             HFTUtil hftUtil = new HFTUtil(kb);
             hftUtil.importHFT0(hftFile);
-
-            kb.close();
         } catch (Exception e) {
             throw new RuntimeException("importHFT(" + hftFile + ", " + kbLocation + ", "
                     + options + ")", e);
+        } finally {
+            if (kb != null) kb.close();
         }
     }
 
     protected void exportHFT(String hftFile, String kbLocation, List<String> options) {
+        Theo2 kb = null;
         try {
-            Theo2 kb = TheoFactory.open(kbLocation, true, false, options);
+            kb = TheoFactory.open(kbLocation, true, false, options);
             
             HFTUtil hftUtil = new HFTUtil(kb);
             hftUtil.exportHFT0(hftFile);
-
-            kb.close();
         } catch (Exception e) {
             throw new RuntimeException("exportHFT(" + hftFile + ", " + kbLocation + ")", e);
+        } finally {
+            if (kb != null) kb.close();
         }
     }
 
