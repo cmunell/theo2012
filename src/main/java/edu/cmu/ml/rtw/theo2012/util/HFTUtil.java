@@ -27,7 +27,7 @@ import edu.cmu.ml.rtw.theo2012.core.*;
 /**
  * Utility methods for reading and writing HFT files
  *
- * This uses the 2015 definition of HFT0, where each line is an "av" command followed by a Belief
+ * This uses the 2015 definition of HFT0, where each line is an "ab" command followed by a Belief
  * rendered into a MATLAB-style string
  *
  * In keeping with a number of our other classes, this will automatically gzip or ungzip the HFT
@@ -60,7 +60,7 @@ public class HFTUtil {
             int pos = 0;
             if (line.length() < 4
                     || (line.charAt(pos++) != 'a')
-                    || (line.charAt(pos++) != 'e')
+                    || (line.charAt(pos++) != 'b')
                     || (line.charAt(pos++) != ' ')) {
                 if (continueOnError)
                     log.warn("Ignoring unrecognized HFT0 command: " + line);
@@ -284,7 +284,7 @@ public class HFTUtil {
                     // pays off in terms of pruning our recursion.
                     if (v instanceof Entity && !((Entity)v).isPrimitiveEntity())
                         exportHFT0Entity(out, (Entity)v, exportedLocs);
-                    out.println("ae " + q.getBelief(v).toString());
+                    out.println("ab " + q.getBelief(v).toString());
                 }
 
                 // Recurse
@@ -394,7 +394,7 @@ public class HFTUtil {
 
                 String bstr = q.getBelief(gen).toString();
                 if (exportedLocs.add(bstr))
-                    out.println("ae " + bstr);
+                    out.println("ab " + bstr);
             }
             exportedLocs = null;
             exportedEntities.put(peName, doneExporting);
