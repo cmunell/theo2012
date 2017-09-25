@@ -31,7 +31,7 @@ import edu.cmu.ml.rtw.theo2012.core.*;
  * Simple CLI access to common Theo2 API and some handy additional utilties.
  */
 public class TheoTool {
-    private final static Logger log = LogFactory.getLogger();
+    private static Logger log;
 
     protected void pre(PrintStream out, Entity e) {
         try {
@@ -274,11 +274,12 @@ public class TheoTool {
      */
     public static void main(String[] args) throws Exception {
         try {
+            System.setProperty("log4j.console", "true");
+            log = LogFactory.getLogger();
             TheoTool me = new TheoTool();
             me.run(args);
         } catch (Exception e) {
             log.fatal("Uncaught exception", e);
-            System.err.println("Exception: " + e.getMessage());
             System.exit(2);
         }
     }

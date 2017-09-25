@@ -20,7 +20,7 @@ import edu.cmu.ml.rtw.theo2012.core.*;
  * bk:api: see comments below, which are not individually tagged bk:api<p>
  */
 public class TheoExample {
-    private final static Logger log = LogFactory.getLogger();
+    private static Logger log;
 
     protected Theo2 kb;
 
@@ -205,6 +205,8 @@ public class TheoExample {
      */
     public static void main(String[] args) throws Exception {
         try {
+            System.setProperty("log4j.console", "true");
+            log = LogFactory.getLogger();
             TheoExample me = new TheoExample();
             me.run(args);
         } catch (Exception e) {

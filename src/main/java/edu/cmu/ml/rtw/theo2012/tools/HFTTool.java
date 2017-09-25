@@ -32,7 +32,7 @@ import edu.cmu.ml.rtw.theo2012.util.HFTUtil;
  * Collection of HFT-related commandline functionalities, like importing from and exporting to.
  */
 public class HFTTool {
-    private final static Logger log = LogFactory.getLogger();
+    private static Logger log;
 
     protected void importHFT(String hftFile, String kbLocation, List<String> options) {
         Theo2 kb = null;
@@ -173,11 +173,12 @@ public class HFTTool {
      */
     public static void main(String[] args) throws Exception {
         try {
+            System.setProperty("log4j.console", "true");
+            log = LogFactory.getLogger();
             HFTTool me = new HFTTool();
             me.run(args);
         } catch (Exception e) {
             log.fatal("Uncaught exception", e);
-            System.err.println("Exception: " + e.getMessage());
             System.exit(2);
         }
     }
