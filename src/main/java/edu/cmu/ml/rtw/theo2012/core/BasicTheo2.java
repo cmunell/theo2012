@@ -104,7 +104,7 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
                 // domain, or range for the presence of multiple values.
                 Boolean nrofvalues = nrofvaluesCache.get(slotName);
                 if (nrofvalues != null && nrofvalues == true) {
-                    if (getNumValues(slot) > 0)
+                    if (getNumValues(slot) > 0 && !getQuery(slot).into1Value().equals(value))
                         throw new RuntimeException("nrofvalues=1 slot already contains a value");
                 }
                 String domainPrimitiveEntity = domainCache.get(slotName);
