@@ -1,6 +1,7 @@
 package edu.cmu.ml.rtw.theo2012.tools;
 
 import java.io.File;
+import java.io.PrintStream;
 
 import edu.cmu.ml.rtw.util.Logger;
 import edu.cmu.ml.rtw.util.LogFactory;
@@ -38,7 +39,7 @@ public class TheoExample {
         // We want to start from an empty KB so that we don't get tripped up on any pre-existing
         // content, so we'll delete it first.
         File kbName = new File("TheoExample.mdb");
-        kbName.delete();
+        deleteDirectory(kbName);
         kb = TheoFactory.open(kbName, false, true); 
 
         // Create some some person entities.  Entities must exist before than can be used or otherwise
@@ -195,10 +196,58 @@ public class TheoExample {
         System.out.println(tomWifeJoanProb9999.getBelief(why, "because").entityExists());
         System.out.println(tomWifeJoanProb9999.getQuery(why).valueDump());
 
+        // For a slightly more real-world example, have a look inside this recursive entity
+        // pretty-printing method.
+        pre(System.out, tom, "");
+
         // Don't forget to close -- you may wind up with data corruption if caches and buffers and
         // so-forth are not committed.
         kb.close();
     }
+
+    /**
+     * Recurively pretty-print the content of the given entity
+     */
+    protected void pre(PrintStream out, Entity e, String indent) {
+        try {
+            for (Slot slot : e.getSlots()) {
+                Query q = e.getQuery(slot);
+                out.print(indent + slot + ": ");
+                out.print(q.valueDump());
+                out.print("\n");
+
+                for (RTWValue v : e.getQuery(slot).iter()) {
+                    Entity sube = e.getBelief(slot, v);
+                    if (!sube.getSlots().isEmpty()) {
+                        out.print(indent + "  =" + v + "\n");
+                        pre(out, sube, indent + "  ");
+                    }
+                }
+
+                if (!q.getSlots().isEmpty())
+                    pre(out, q, indent + "  ");
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException("pre(<out>, " + e + ")", ex);
+        }
+    }
+
+    /**
+     * Recursively delete file or directory
+     */
+    protected boolean deleteDirectory(File path) { 
+        if (path.exists()) { 
+            File[] files = path.listFiles(); 
+            for (int i = 0; i < files.length; i++) { 
+                if (files[i].isDirectory()) { 
+                    deleteDirectory(files[i]); 
+                } else { 
+                    files[i].delete(); 
+                } 
+            } 
+        } 
+        return (path.delete()); 
+    } 
 
     /**
      * @param args
