@@ -2385,7 +2385,7 @@ public class PointerInversingTheo1 extends Theo1Base implements Theo1 {
      * although Theo2012Converter will still need to be able to invoke all or part of that in such a
      * way as to meet its needs.
      */
-    protected void deleteNonCanonicalSymmetrics(Entity entity) {
+    public void deleteNonCanonicalSymmetrics(Entity entity) {
         try {
             // Drop down to the Entity type below us if we've been given one of our own objects
             if (entity instanceof MyEntity)
