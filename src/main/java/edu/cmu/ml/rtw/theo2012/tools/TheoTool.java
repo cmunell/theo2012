@@ -229,7 +229,7 @@ public class TheoTool {
 
         try {
             // bkdb: Make this not ugly after we have whiteboard Theo expressions worked out
-            RTWLocation loc = StoreInverselessTheo1.parseLocationArgument(arg1);
+            RTWLocation loc = StoreInverselessTheo1.parseLocationArgument(arg1, theo);
             log.debug("For location " + loc);
             Entity e = theo.get(loc);
 
@@ -250,11 +250,11 @@ public class TheoTool {
             } else if (cmd.equals("getSlots")) {
                 System.out.println(e.getSlots());
             } else if (cmd.equals("addValue")) {
-                RTWValue value = StoreInverselessTheo1.parseValueArgument(arg3);
+                RTWValue value = StoreInverselessTheo1.parseValueArgument(arg3, theo);
                 System.out.println(e.addValue(arg2, value));
                 System.out.println(e.getQuery(arg2).valueDump());
             } else if (cmd.equals("deleteValue")) {
-                RTWValue value = StoreInverselessTheo1.parseValueArgument(arg3);
+                RTWValue value = StoreInverselessTheo1.parseValueArgument(arg3, theo);
                 e.deleteValue(arg2, value);
                 System.out.println(e.getQuery(arg2).valueDump());
             } else if (cmd.equals("pre")) {

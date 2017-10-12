@@ -1371,7 +1371,7 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
         return new MySlot(store.getLoc(slotName));
     }
 
-    private static Pair<RTWLocation, Integer> parseLocation(String whole) {
+    private static Pair<RTWLocation, Integer> parseLocation(String whole, Theo0 theo) {
         log.info("parseLocation(\"" + whole + "\")");
         try {
             List<Object> list = new ArrayList<Object>();
@@ -1388,7 +1388,7 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
                 }
                 else if (whole.charAt(i) == '>') {
                     if (i - start > 0) {
-                        Pair<RTWValue, Integer> p = parseValue(whole.substring(start, i));
+                        Pair<RTWValue, Integer> p = parseValue(whole.substring(start, i), theo);
                         if (p.getRight() != i-start)
                             throw new RuntimeException("Extra junk in RTWValue starting at: " + whole.substring(p.getRight()));
                         list.add(p.getLeft());
@@ -1403,7 +1403,7 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
                 else if (whole.charAt(i) == ',') {
                     if (i - start == 0)
                         throw new RuntimeException("Zero-length element at position " + i);
-                    Pair<RTWValue, Integer> p = parseValue(whole.substring(start, i));
+                    Pair<RTWValue, Integer> p = parseValue(whole.substring(start, i), theo);
                     if (p.getRight() != i-start)
                         throw new RuntimeException("Extra junk in RTWValue starting at: " + whole.substring(p.getRight()));
                     list.add(p.getLeft());
@@ -1413,7 +1413,7 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
                 } else if (whole.charAt(i) == '<') {
                     if (i != start)
                         throw new RuntimeException("'<' in the midst of a value at position " + i);
-                    Pair<RTWLocation, Integer> lpair = parseLocation(whole.substring(i+1));
+                    Pair<RTWLocation, Integer> lpair = parseLocation(whole.substring(i+1), theo);
                     list.add(new RTWPointerValue(lpair.getLeft()));
                     i += lpair.getRight() + 2;
                     log.info("i is " + i + " after the parselocation call because it returned " + lpair.getRight());
@@ -1424,7 +1424,7 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
                 } else if (whole.charAt(i) == '=') {
                     if (i != start)
                         throw new RuntimeException("'=' in the midst of a value at position " + i);
-                    Pair<RTWValue, Integer> vpair = parseValue(whole.substring(i+1));
+                    Pair<RTWValue, Integer> vpair = parseValue(whole.substring(i+1), theo);
                     list.add(new RTWElementRef(vpair.getLeft()));
                     i += vpair.getRight() + 2;
 
@@ -1440,7 +1440,7 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
             // Coming to the end is like hitting a comma if we've accumulated anything between start
             // and i.
             if (i - start > 0) {
-                Pair<RTWValue, Integer> p = parseValue(whole.substring(start, i));
+                Pair<RTWValue, Integer> p = parseValue(whole.substring(start, i), theo);
                 // log.info("i is " + i + " and start is " + start + " and parseValue returned " + p.getRight());
                 if (p.getRight() != i-start)
                     throw new RuntimeException("Extra junk in RTWValue starting at: " + whole.substring(p.getRight()));
@@ -1455,17 +1455,17 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
         }
     }
 
-    private static Pair<RTWValue, Integer> parseValue(String whole) {
+    private static Pair<RTWValue, Integer> parseValue(String whole, Theo0 theo) {
         // log.info("parseValue(\"" + whole + "\")");
         try {
             if (whole.length() == 0)
                 throw new RuntimeException("Zero-length value");
             if (whole.charAt(0) == '<') {
-                Pair<RTWLocation, Integer> p = parseLocation(whole.substring(1, whole.length()-1));
+                Pair<RTWLocation, Integer> p = parseLocation(whole.substring(1, whole.length()-1), theo);
                 if (whole.charAt(p.getRight() + 1) != '>')
-                    throw new RuntimeException("RTWPointerValue does not end with '>' at position "
+                    throw new RuntimeException("RTWLocation does not end with '>' at position "
                             + (p.getRight()+1));
-                return new Pair<RTWValue, Integer>(new RTWPointerValue(p.getLeft()), p.getRight()+2);
+                return new Pair<RTWValue, Integer>(theo.get(p.getLeft()), p.getRight()+2);
             } else {
                 // We'll allow only those characters that we don't use as special punctuation to be
                 // part of the value.  And, for now, we'll make everything an RTWStringValue
@@ -1484,16 +1484,16 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
         }
     }
 
-    public static RTWLocation parseLocationArgument(String arg) {
-        Pair<RTWLocation, Integer> p = parseLocation(arg);
+    public static RTWLocation parseLocationArgument(String arg, Theo0 theo) {
+        Pair<RTWLocation, Integer> p = parseLocation(arg, theo);
         int end = p.getRight();
         if (end < arg.length())
             throw new RuntimeException("Junk after location: \"" + arg.substring(end) + "\"");
         return p.getLeft();
     }
 
-    public static RTWValue parseValueArgument(String arg) {
-        Pair<RTWValue, Integer> p = parseValue(arg);
+    public static RTWValue parseValueArgument(String arg, Theo0 theo) {
+        Pair<RTWValue, Integer> p = parseValue(arg, theo);
         int end = p.getRight();
         if (end < arg.length())
             throw new RuntimeException("Junk after value: \"" + arg.substring(end) + "\"");
@@ -1512,7 +1512,7 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
             StoreInverselessTheo1 theo = new StoreInverselessTheo1(new StringListSuperStore(new MapDBStoreMap()));
             theo.open(filename, false);
 
-            RTWLocation loc = parseLocationArgument(locstr);
+            RTWLocation loc = parseLocationArgument(locstr, theo);
             System.out.println("For location " + loc);
 
             Entity e = theo.get(loc);
@@ -1540,12 +1540,12 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
                 System.out.println(e.getSlots());
             } else if (cmd.equals("addValue")) {
                 String slot = args[3];
-                RTWValue value = parseValueArgument(args[4]);
+                RTWValue value = parseValueArgument(args[4], theo);
                 System.out.println(e.addValue(slot, value));
                 System.out.println(e.getQuery(slot).valueDump());
             } else if (cmd.equals("deleteValue")) {
                 String slot = args[3];
-                RTWValue value = parseValueArgument(args[4]);
+                RTWValue value = parseValueArgument(args[4], theo);
                 e.deleteValue(slot, value);
                 System.out.println(e.getQuery(slot).valueDump());
             } else if (cmd.equals("pre")) {

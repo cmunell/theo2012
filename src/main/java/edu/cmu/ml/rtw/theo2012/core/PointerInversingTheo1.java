@@ -2530,7 +2530,7 @@ public class PointerInversingTheo1 extends Theo1Base implements Theo1 {
             RTWLocation loc = null;
             Entity e = null;
             if (locstr != null) {
-                loc = StoreInverselessTheo1.parseLocationArgument(locstr);
+                loc = StoreInverselessTheo1.parseLocationArgument(locstr, theo);
                 System.out.println("For location " + loc);
                 e = theo.get(loc);
             }
@@ -2558,12 +2558,12 @@ public class PointerInversingTheo1 extends Theo1Base implements Theo1 {
                 System.out.println(e.getSlots());
             } else if (cmd.equals("addValue")) {
                 String slot = args[3];
-                RTWValue value = StoreInverselessTheo1.parseValueArgument(args[4]);
+                RTWValue value = StoreInverselessTheo1.parseValueArgument(args[4], theo);
                 System.out.println(e.addValue(slot, value));
                 System.out.println(e.getQuery(slot).valueDump());
             } else if (cmd.equals("deleteValue")) {
                 String slot = args[3];
-                RTWValue value = StoreInverselessTheo1.parseValueArgument(args[4]);
+                RTWValue value = StoreInverselessTheo1.parseValueArgument(args[4], theo);
                 e.deleteValue(slot, value);
                 System.out.println(e.getQuery(slot).valueDump());
             } else if (cmd.equals("pre")) {
