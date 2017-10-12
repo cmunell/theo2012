@@ -227,46 +227,48 @@ public class TheoTool {
         if (cmd.equals("addValue") || cmd.equals("deleteValue")) readOnly = false;
         Theo2 theo = TheoFactory.open(kbLocation, readOnly, !readOnly, options);
 
-        // bkdb: Make this not ugly after we have whiteboard Theo expressions worked out
-        RTWLocation loc = StoreInverselessTheo1.parseLocationArgument(arg1);
-        log.debug("For location " + loc);
-        Entity e = theo.get(loc);
+        try {
+            // bkdb: Make this not ugly after we have whiteboard Theo expressions worked out
+            RTWLocation loc = StoreInverselessTheo1.parseLocationArgument(arg1);
+            log.debug("For location " + loc);
+            Entity e = theo.get(loc);
 
-        if (cmd.equals("getQuery")) {
-            System.out.println(e.getQuery(arg2).valueDump());
-        } else if (cmd.equals("getNumValues")) {
-            System.out.println(e.getNumValues(arg2));
-        } else if (cmd.equals("getReferringValues")) {
-            System.out.println(e.getReferringValues(arg2).valueDump());
-        } else if (cmd.equals("getNumReferringValues")) {
-            System.out.println(e.getNumReferringValues(arg2));
-        } else if (cmd.equals("entityExists")) {
-            if (arg2 != null) {
-                System.out.println(e.entityExists(arg2));
+            if (cmd.equals("getQuery")) {
+                System.out.println(e.getQuery(arg2).valueDump());
+            } else if (cmd.equals("getNumValues")) {
+                System.out.println(e.getNumValues(arg2));
+            } else if (cmd.equals("getReferringValues")) {
+                System.out.println(e.getReferringValues(arg2).valueDump());
+            } else if (cmd.equals("getNumReferringValues")) {
+                System.out.println(e.getNumReferringValues(arg2));
+            } else if (cmd.equals("entityExists")) {
+                if (arg2 != null) {
+                    System.out.println(e.entityExists(arg2));
+                } else {
+                    System.out.println(e.entityExists());
+                }
+            } else if (cmd.equals("getSlots")) {
+                System.out.println(e.getSlots());
+            } else if (cmd.equals("addValue")) {
+                RTWValue value = StoreInverselessTheo1.parseValueArgument(arg3);
+                System.out.println(e.addValue(arg2, value));
+                System.out.println(e.getQuery(arg2).valueDump());
+            } else if (cmd.equals("deleteValue")) {
+                RTWValue value = StoreInverselessTheo1.parseValueArgument(arg3);
+                e.deleteValue(arg2, value);
+                System.out.println(e.getQuery(arg2).valueDump());
+            } else if (cmd.equals("pre")) {
+                pre(e);
+            } else if (cmd.equals("prer")) {
+                prer(e);
+            } else if (cmd.equals("ents")) {
+                ents(e);
             } else {
-                System.out.println(e.entityExists());
+                System.out.println("Unrecognized command");
             }
-        } else if (cmd.equals("getSlots")) {
-            System.out.println(e.getSlots());
-        } else if (cmd.equals("addValue")) {
-            RTWValue value = StoreInverselessTheo1.parseValueArgument(arg3);
-            System.out.println(e.addValue(arg2, value));
-            System.out.println(e.getQuery(arg2).valueDump());
-        } else if (cmd.equals("deleteValue")) {
-            RTWValue value = StoreInverselessTheo1.parseValueArgument(arg3);
-            e.deleteValue(arg2, value);
-            System.out.println(e.getQuery(arg2).valueDump());
-        } else if (cmd.equals("pre")) {
-            pre(e);
-        } else if (cmd.equals("prer")) {
-            prer(e);
-        } else if (cmd.equals("ents")) {
-            ents(e);
-        } else {
-            System.out.println("Unrecognized command");
+        } finally {
+            theo.close();
         }
-
-        theo.close();
     }
                 
     /**
