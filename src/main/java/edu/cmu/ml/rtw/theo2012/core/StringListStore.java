@@ -1458,13 +1458,7 @@ public class StringListStore<SLSM extends StringListStoreMap> implements Store {
 
     public StringListStore(SLSM slsm) {
         this.slsm = slsm;
-
-        // We don't actually have a properties file of our own yet.  The only properties that we're
-        // interested in are sort of "global NELL" settings, which, for now, are accumulated in
-        // MBL's properties file.  So we just continue that practice for the time being.
-        // bk:prop
-        Properties properties =
-                Properties.loadFromClassName("edu.cmu.ml.rtw.mbl.MBLExecutionManager", null, false);
+        Properties properties = TheoFactory.getProperties();
         preventUppercase = properties.getPropertyBooleanValue("preventUppercase", false);  // bkdb: be sure to coordinate agreement on this default between InMind and NELL during the wedge merge
     }
     

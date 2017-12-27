@@ -166,6 +166,10 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
                             // bkdb: see, and here we have nfc what layer of Theo this entity will be
                             // and if getQuery is going to do the "right thing" here or whether we need
                             // to convert it to our level before operating.
+                            //
+                            // NB: we always want to make changes to the wrapped entity directly so
+                            // that we don't trigger any of our own automatic logic.  The value
+                            // passed in here should only ever already be unwrapped.
                             Entity them = (Entity)value;
                             // TODO: this can't be intoBoolean; we want to tolerate non-scalar or wrong type as a null indicating a non-setting
                             Boolean myMaintain = getQuery("masterinverse").into1Boolean();
@@ -176,17 +180,48 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
                                     // So here we set the false before setting the true so that if
                                     // this entity is its own inverse it winds up with the final
                                     // value of true.
+                                    if (developerMode) log.debug("Setting " + this + " inverse=" + value + ": No masterinverse settings, so making this the masterinverse");
                                     them.deleteAllValues("masterinverse");
                                     them.addValue("masterinverse", RTWBooleanValue.FALSE);
-                                    deleteAllValues("masterinverse");
-                                    addValue("masterinverse", RTWBooleanValue.TRUE);
+                                    wrappedEntity.deleteAllValues("masterinverse");
+                                    wrappedEntity.addValue("masterinverse", RTWBooleanValue.TRUE);
                                 } else {
-                                    deleteAllValues("masterinverse");
-                                    addValue("masterinverse", new RTWBooleanValue(!theirMaintain));
+                                    if (developerMode) log.debug("Setting " + this + " inverse=" + value + ": Reusing masterinverse setting from the inverse, so setting this to " + !theirMaintain);
+                                    wrappedEntity.deleteAllValues("masterinverse");
+                                    wrappedEntity.addValue("masterinverse", new RTWBooleanValue(!theirMaintain));
                                 }
                             } else {
-                                them.deleteAllValues("masterinverse");
-                                them.addValue("masterinverse", new RTWBooleanValue(!myMaintain));
+                                // Skip this if this is an inverse relation
+                                if (!them.equals(wrappedEntity)) {
+                                    if (developerMode) log.debug("Setting " + this + " inverse=" + value + ": Reusing masterinverse setting from this, so setting inverse to " + !myMaintain);
+                                    them.deleteAllValues("masterinverse");
+                                    them.addValue("masterinverse", new RTWBooleanValue(!myMaintain));
+                                } else {
+                                    if (developerMode) log.debug("Setting " + this + " inverse=" + value + ": Reusing masterinverse setting from this and not adjusting the invesre because this is a symmetric slot");
+                                }
+                            }
+                        }
+                    }
+
+                    else if (slotName.equals("masterinverse")) {
+                        // In order to fulfill the contract to have masterinverse automatically be
+                        // set when the user doesn't care so that inverses "just work" we need to
+                        // keep inverse pairs in sync when the user explicitly changes a value.
+                        // Otherwise, the automatic setting (such as when changing the value of the
+                        // "inverse" slot) may produce unexpected results when the user does care
+                        // about masterinverse, depending on the exact order of operations.
+                        if (value instanceof RTWBooleanValue) {
+                            Query inverse = getQuery("inverse");
+                            if (inverse.has1Entity()) {
+                                // NB: we want to operate on the unwrapped entity; otherwise we will
+                                // trap the modification and go into an infinite loop.
+                                Entity them = (Entity)unwrapEntity(inverse.need1Entity());
+
+                                // Note: if this is a symmetric slot then this should be a no-op.
+                                if (!them.equals(wrappedEntity)) {
+                                    them.deleteAllValues("masterinverse");
+                                    them.addValue("masterinverse", new RTWBooleanValue(!value.asBoolean()));
+                                }
                             }
                         }
                     }
@@ -253,7 +288,7 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
                                     + value + " for " + entityName);
                         }
                     }
-                }                
+                }
             } catch (Exception e) {
                 throw new RuntimeException("trapAdd(" + slot + ", " + value + ")", e);
             }
@@ -336,7 +371,7 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
 
         @Override public String toString() {
             String s = wrappedEntity.toString();
-            if (developerMode) s = s + "-TT2";
+            if (developerMode) s = s + "-BT2";
             return s;
         }
 
@@ -521,7 +556,7 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
 
         @Override public boolean addValue(RTWValue value_) {
             RTWValue value = unwrapEntity(value_);
-            trapAdd(getQuerySlot(), value);
+            getQueryEntity().trapAdd(getQuerySlot(), value);
             return ((Query)wrappedEntity).addValue(value);
         }
 
@@ -554,7 +589,7 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
             }
         }
 
-        @Override public Entity getQueryEntity() {
+        @Override public MyEntity getQueryEntity() {
             Entity e = ((Query)wrappedEntity).getQueryEntity();
             if (e.isBelief()) return new MyBelief(e.toBelief());
             if (e.isQuery()) return new MyQuery(e.toQuery());
@@ -967,8 +1002,7 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
         // We don't actually have a properties file of our own yet.  The only properties that we're
         // interested in are sort of "global NELL" settings, which, for now, are accumulated in
         // MBL's properties file.  So we just continue that practice for the time being.  bk:prop
-        Properties properties =
-                Properties.loadFromClassName("edu.cmu.ml.rtw.mbl.MBLExecutionManager", null, false);
+        Properties properties = TheoFactory.getProperties();
         developerMode = properties.getPropertyBooleanValue("developerMode", false);
 
         this.t1 = t1;

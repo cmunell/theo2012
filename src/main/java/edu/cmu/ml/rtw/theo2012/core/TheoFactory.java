@@ -2,6 +2,7 @@ package edu.cmu.ml.rtw.theo2012.core;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import edu.cmu.ml.rtw.util.Logger;
@@ -28,6 +29,11 @@ public class TheoFactory {
      * Our log
      */
     private final static Logger log = LogFactory.getLogger();
+
+    /**
+     * Properties from the most recent attempt to load them, or null
+     */
+    protected static Properties properties;
 
     /**
      * Suggested general-purpose way to open a KB meant to continue to "just work" in the future.<p>
@@ -84,7 +90,7 @@ public class TheoFactory {
      * eschew the added functionalities of {@link Theo2}.
      */
     public static Theo1 openTheo1(String name, boolean readOnly, boolean create, List<String> options) {
-        Properties properties = getProperties(options);
+        properties = getProperties(options);
         Theo1 theo1 = null;
         File file = new File(name);
 
@@ -182,7 +188,8 @@ public class TheoFactory {
 
     /**
      * Standardized way to obtain a Properties object containing the correct set of properties given
-     * whatever combination of ways to specify them is used.
+     * whatever combination of ways to specify them is used, reloading them and replacing the
+     * properties on record.
      *
      * This is our current attempt to hide the transitional uncertainty of the situation, which
      * includes a lot of transitional ad hoc patches in order to ease simultaneous development of
@@ -200,6 +207,19 @@ public class TheoFactory {
         // Parse the optional options parameter in, thereby treating them as a final override
         properties.load(toProperties(options));
 
+        return properties;
+    }
+
+    /**
+     * Return currently-loaded properties or supply some default properties if none have yet been
+     * loaded
+     *
+     * This is made available for use by all classes in the package so that there is a single code
+     * path for obtaining properties until such time as we might decide to do something more
+     * sophisticated.
+     */
+    protected static Properties getProperties() {
+        if (properties == null) properties = getProperties(Collections.EMPTY_LIST);
         return properties;
     }
 

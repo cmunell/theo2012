@@ -2255,11 +2255,7 @@ public class PointerInversingTheo1 extends Theo1Base implements Theo1 {
      * simplify coordination of open and close because they're not part of the Theo1 interface yet.
      */
     public PointerInversingTheo1(StoreInverselessTheo1 theo1) {
-        // We don't actually have a properties file of our own yet.  The only properties that we're
-        // interested in are sort of "global NELL" settings, which, for now, are accumulated in
-        // MBL's properties file.  So we just continue that practice for the time being.  bk:prop
-        Properties properties =
-                Properties.loadFromClassName("edu.cmu.ml.rtw.mbl.MBLExecutionManager", null, false);
+        Properties properties = TheoFactory.getProperties();
         developerMode = properties.getPropertyBooleanValue("developerMode", false);
 
         this.theo1 = theo1;

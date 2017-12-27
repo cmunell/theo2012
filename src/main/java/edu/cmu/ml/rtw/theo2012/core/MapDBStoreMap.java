@@ -220,12 +220,7 @@ public class MapDBStoreMap implements StringListStoreMap {
      * Constructor
      */
     public MapDBStoreMap() {
-        // We don't actually have a properties file of our own yet.  Worse, we read MBL's properties
-        // for now anyway since that's where the KB cache parametrs have historically been
-        // controlled, and that's the current sensible spot to specify a special directory to use
-        // for KB optimization. // bk:prop
-        Properties properties =
-                Properties.loadFromClassName("edu.cmu.ml.rtw.mbl.MBLExecutionManager", null, false);
+        Properties properties = TheoFactory.getProperties();
 
         /**
          * We used to be write-through in order to make things easier in terms of coherency with
@@ -310,6 +305,16 @@ public class MapDBStoreMap implements StringListStoreMap {
             throw new RuntimeException("StoreMap is already closed");
         flush(false);
         db.close();
+
+        // If we were open read/write update the modification time on the disk location.  As of this
+        // writing MapDB uses a directory, and happens to not update the modification time on the
+        // directory, which confuses our current simple approaches to tracking checkpoints and all
+        // that.  Even if/when we offer a proper API for that sort of thing, it's still convenient
+        // to have the on-disk storage make sense at a casual glance.
+        File f = new File(location);
+        f.setLastModified(System.currentTimeMillis());
+
+        // And reset internal state
         location = null;
         map = null;
         db = null;

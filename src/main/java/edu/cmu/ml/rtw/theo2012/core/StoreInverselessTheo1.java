@@ -1041,7 +1041,7 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
                     throw new RuntimeException("\"" + entity + " may not generalize to \"" + gen
                             + "\" because it is already a context and cannot also be a slot");
                 if (allSlots.add(entity))
-                    log.debug("bkdb: added new slot " + entity);
+                    log.debug("bkdb: added new slot '" + entity + "'");
             } else if (gen.equals("context") || allContexts.contains(gen)) {
                 if (allSlots.contains(entity) || entity.equals("slot"))
                     throw new RuntimeException("\"" + entity + " may not generalize to \"" + gen
@@ -1230,8 +1230,7 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
         // We don't actually have a properties file of our own yet.  The only properties that we're
         // interested in are sort of "global NELL" settings, which, for now, are accumulated in
         // MBL's properties file.  So we just continue that practice for the time being.  bk:prop
-        Properties properties =
-                Properties.loadFromClassName("edu.cmu.ml.rtw.mbl.MBLExecutionManager", null, false);
+        Properties properties = TheoFactory.getProperties();
         developerMode = properties.getPropertyBooleanValue("developerMode", false);
 
         this.store = store;
