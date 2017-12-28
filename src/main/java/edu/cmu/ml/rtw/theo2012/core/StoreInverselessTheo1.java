@@ -1152,8 +1152,8 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
 
                 // If this entity is a slot or context, it's uncomplicated to know that it
                 // no longer will be one
-                allSlots.remove(entity);
-                log.debug("bkdb: removed slot " + entity);
+                if (allSlots.remove(entity))
+                    log.debug("bkdb: removed slot " + entity);
                 allContexts.remove(entity);
                 // TODO: used-as-slot constraint
 
@@ -1189,8 +1189,8 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
                                 }
                             }
                             if (!stillSlot) {
-                                allSlots.remove(entity);
-                                log.debug("bkdb: removed slot " + entity);
+                                if (allSlots.remove(entity))
+                                    log.debug("bkdb: removed slot " + entity);
                                 // TODO: used-as-slot constraint
                             }
                         }
