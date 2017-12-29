@@ -29,6 +29,11 @@
      <version>0.0.1</version>
    </dependency>
    <dependency>
+     <groupId>edu.cmu.ml.rtw</groupId>
+     <artifactId>theo2012-tch</artifactId>
+     <version>0.0.1</version>
+   </dependency>
+   <dependency>
       <groupId>org.mapdb</groupId>
       <artifactId>mapdb</artifactId>
       <version>3.0.4</version>
