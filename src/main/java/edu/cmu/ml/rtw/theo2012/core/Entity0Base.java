@@ -200,9 +200,13 @@ public abstract class Entity0Base extends RTWValueBase implements Entity {
         }
 
         public RTWValue next() {
-            RTWValue v = it.next();
-            RTWValue wrapped = wrapEntity(v);
-            return wrapped;
+            try { 
+                RTWValue v = it.next();
+                RTWValue wrapped = wrapEntity(v);
+                return wrapped;
+            } catch (Exception e) {
+                throw new RuntimeException("next() on " + Entity0Base.this.toString(), e);
+            }
         }
 
         public void remove() {
