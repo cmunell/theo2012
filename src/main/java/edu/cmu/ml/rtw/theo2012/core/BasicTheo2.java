@@ -1127,6 +1127,14 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
         }
     }
 
+    @Override public RTWValue ioctl(String syscall, RTWValue params) {
+        try {
+            return t1.ioctl(syscall, params);
+        } catch (Exception e) {
+            throw new RuntimeException("ioctl(\"" + syscall + "\", " + params + ")", e);
+        }
+    }
+
     /**
      * Pretty-print an entity, recursively descending through all subslots and values<p>
      *

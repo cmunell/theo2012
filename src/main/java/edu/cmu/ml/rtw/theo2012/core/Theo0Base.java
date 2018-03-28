@@ -433,4 +433,11 @@ public abstract class Theo0Base implements Theo0 {
             throw new RuntimeException("valueFromString(\"" + str + "\")", e);
         }
     }
+
+    /**
+     * Default of no-op for every operation
+     */
+    @Override public RTWValue ioctl(String syscall, RTWValue params) {
+        return null;
+    }
 }

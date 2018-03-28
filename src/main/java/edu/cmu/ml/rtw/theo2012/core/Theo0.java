@@ -220,6 +220,39 @@ public interface Theo0 {
      */
     public PrimitiveEntity createPrimitiveEntity(String name, Entity generalization);
 
+    /**
+     * Catch-all acess method for operations not directly to do with Theo at a theoretical level<p>
+     *
+     * The fundamental idea here is to add a single method to the API that could be used to add any
+     * kind of functionality to anywhere from one to all Theo implementations without changing the
+     * API itself.  This is not meant for operations that change the content of the Theo KB in the
+     * usual sense, but rather out-of-band operations, such as passing hints or adjusting features
+     * for a particular equivalence class of implementations, or to request an optional operation,
+     * such as defragmenting the storage format or ensuring that all modifications have been flushed
+     * to physical storage.<p>
+     *
+     * The choice of naming this method "ioctl" is intentional in that it might not be the right
+     * name or the right concept for the functionalities offered here; this intentionally keeps the
+     * namespace of possible future method names open for something more appropriate, should this
+     * experimental free-form thing turn out to be a poor idea.  In the meanwhile, it provides a
+     * "sandbox" of sorts to add functionality by convention rather than by API in order to explore
+     * how best to extend the API in the future.<p>
+     *
+     * As a rule, no implementation is required to implement any particular functionality with this
+     * method.  The default behavior is that every invokation is a no-op that unconditionally
+     * returns null.  Higher layers of Theo should always pass down an ioctl call to the lower
+     * layers or whatever underlying implementation is at hand unless they have some reason to
+     * interpret a particular syscall in such a way that it should not be passed further down.  This
+     * provides application-level code a conduit down to the lowest levels tennabe.
+     *
+     * @param syscall The implementation-dependent name of the operation to perform
+     *
+     * @param params Whatever parameters might be necessary for the operation, or null
+     *
+     * @returns null if the syscall is unknown, unsupported, or ignored; something meaningful or at
+     * least {@link RTWThisHasNoValue} to indicate acknowledgement of the request.
+     */
+    public RTWValue ioctl(String syscall, RTWValue params);
 
     ////////////////////////////////////////////////////////////////////////////
     // Things implemented by Theo0Base.java

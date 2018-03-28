@@ -2273,20 +2273,16 @@ public class PointerInversingTheo1 extends Theo1Base implements Theo1 {
         }
     }
 
-    public boolean isOpen() {
+    @Override public boolean isOpen() {
         return theo1.isOpen();
     }
 
-    public boolean isReadOnly() {
+    @Override public boolean isReadOnly() {
         return theo1.isReadOnly();
     }
 
-    public void setReadOnly(boolean makeReadOnly) {
+    @Override public void setReadOnly(boolean makeReadOnly) {
         theo1.setReadOnly(makeReadOnly);
-    }
-
-    public void flush(boolean sync) {
-        theo1.flush(sync);
     }
 
     @Override public void close() {
@@ -2357,6 +2353,13 @@ public class PointerInversingTheo1 extends Theo1Base implements Theo1 {
         return new MySlot(theo1.getSlot(slotName));
     }
 
+    @Override public RTWValue ioctl(String syscall, RTWValue params) {
+        try {
+            return theo1.ioctl(syscall, params);
+        } catch (Exception e) {
+            throw new RuntimeException("ioctl(\"" + syscall + "\", " + params + ")", e);
+        }
+    }
 
     /**
      * Cleanup step used for now by Theo2012Converter

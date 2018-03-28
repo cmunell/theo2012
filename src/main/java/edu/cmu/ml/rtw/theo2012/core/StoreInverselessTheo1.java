@@ -1246,20 +1246,16 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
         }
     }
 
-    public boolean isOpen() {
+    @Override public boolean isOpen() {
         return store.isOpen();
     }
 
-    public boolean isReadOnly() {
+    @Override public boolean isReadOnly() {
         return store.isReadOnly();
     }
 
-    public void setReadOnly(boolean makeReadOnly) {
+    @Override public void setReadOnly(boolean makeReadOnly) {
         store.setReadOnly(makeReadOnly);
-    }
-
-    public void flush(boolean sync) {
-        store.flush(sync);
     }
 
     @Override public void close() {
@@ -1369,6 +1365,32 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
             throw new RuntimeException("\"" + slotName + "\" is not a known slot");
         return new MySlot(store.getLoc(slotName));
     }
+
+    @Override public RTWValue ioctl(String syscall, RTWValue params) {
+        try {
+            if (syscall.equals("io:sync")) {
+                store.flush(true);
+                RTWValue reply = super.ioctl(syscall, params);
+                if (reply == null) return RTWThisHasNoValue.NONE;
+                else return reply;
+            } else if (syscall.equals("io:optimize")) {
+                store.optimize();
+                RTWValue reply = super.ioctl(syscall, params);
+                if (reply == null) return RTWThisHasNoValue.NONE;
+                else return reply;
+            } else if (syscall.equals("hint:largeaccess")) {
+                store.giveLargeAccessHint();
+                RTWValue reply = super.ioctl(syscall, params);
+                if (reply == null) return RTWThisHasNoValue.NONE;
+                else return reply;
+            } else {
+                return super.ioctl(syscall, params);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("ioctl(\"" + syscall + "\", " + params + ")", e);
+        }
+    }
+
 
     private static Pair<RTWLocation, Integer> parseLocation(String whole, Theo0 theo) {
         log.info("parseLocation(\"" + whole + "\")");

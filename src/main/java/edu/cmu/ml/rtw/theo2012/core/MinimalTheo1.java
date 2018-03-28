@@ -784,6 +784,15 @@ public class MinimalTheo1 extends Theo1Base implements Theo1 {
 	public void setReadOnly(boolean makeReadOnly) {
 		theo0.setReadOnly(makeReadOnly);
 	}
+
+    @Override public RTWValue ioctl(String syscall, RTWValue params) {
+        try {
+            return theo0.ioctl(syscall, params);
+        } catch (Exception e) {
+            throw new RuntimeException("ioctl(\"" + syscall + "\", " + params + ")", e);
+        }
+    }
+
 	public void writeDot(String fname, String title, Entity startEntity) {
 		theo0.writeDot(fname, title, unwrapEntity(startEntity));
 	}
