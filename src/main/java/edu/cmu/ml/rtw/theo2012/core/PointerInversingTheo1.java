@@ -2232,8 +2232,10 @@ public class PointerInversingTheo1 extends Theo1Base implements Theo1 {
         otherSet.clear();
         computeS2MRecurse("slot");
         otherSet.clear();
-        log.debug("bkdb:slave2Master=" + slave2Master.toString());
-        log.debug("bkdb:master2Slave=" + master2Slave.toString());
+        if (developerMode) {
+            log.debug("slave2Master=" + slave2Master.toString());
+            log.debug("master2Slave=" + master2Slave.toString());
+        }
 
         // FODO: fsck will have to check all uses of slave inverses
         // FODO: fsck will have to check for double-stored symmetrics (rule should be to add rather than remove in this case I suppose on grounds of erring toward retaining what might have been written by a lower layer without the benefit of this higher layer, and same, then, I suppose, when it comes to use of slave inverses)
@@ -2614,6 +2616,12 @@ public class PointerInversingTheo1 extends Theo1Base implements Theo1 {
                 }
             } else if (cmd.equals("bkdb")) {
                 theo.deleteNonCanonicalSymmetrics(e);
+            } else if (cmd.equals("bkdb2")) {
+                String slot = args[3];
+                MyQuery myq = (MyQuery)(((MyEntity)e).getQuery(slot));
+                System.out.println("myq=" + myq.valueDump());
+                Query wq = (Query)myq.wrappedEntity;
+                System.out.println("wq=" + wq.valueDump());
             } else {
                 System.out.println("Unrecognized command");
             }

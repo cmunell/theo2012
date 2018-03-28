@@ -162,6 +162,8 @@ public class TheoTool {
                 "                  deleteValue: Delete value <arg3> from the slot <arg2> attached\n" +
                 "                    to the entity <arg1>                                        \n" +
                 "                                                                                \n" +
+                "                  deleteEntity: Delete the entity <arg1>                        \n" +
+                "                                                                                \n" +
                 "                  pre: Print the entity <arg1> and all other assertions attached\n" +
                 "                                                                                \n" +
                 "                  prer: Same as pre, but also recursively print any entities to \n" +
@@ -224,7 +226,8 @@ public class TheoTool {
         }
 
         boolean readOnly = true;
-        if (cmd.equals("addValue") || cmd.equals("deleteValue")) readOnly = false;
+        if (cmd.equals("addValue") || cmd.equals("deleteValue") || cmd.equals("deleteEntity"))
+            readOnly = false;
         Theo2 theo = TheoFactory.open(kbLocation, readOnly, !readOnly, options);
 
         try {
@@ -257,6 +260,8 @@ public class TheoTool {
                 RTWValue value = StoreInverselessTheo1.parseValueArgument(arg3, theo);
                 e.deleteValue(arg2, value);
                 System.out.println(e.getQuery(arg2).valueDump());
+            } else if (cmd.equals("deleteEntity")) {
+                System.out.println(theo.deleteEntity(e));
             } else if (cmd.equals("pre")) {
                 pre(e);
             } else if (cmd.equals("prer")) {

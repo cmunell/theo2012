@@ -5,6 +5,7 @@ import java.util.List;
 
 import edu.cmu.ml.rtw.util.Logger;
 import edu.cmu.ml.rtw.util.LogFactory;
+import edu.cmu.ml.rtw.util.Properties;
 
 /**
  * Extends {@link StringListSTore} with extra hidden indexing to make it a {@link SuperStore}.
@@ -115,6 +116,11 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
      */
     protected final String pointerSlotName = " P";
     protected final RTWStringValue pointerSlotNameValue = new RTWStringValue(pointerSlotName);
+
+    /**
+     * Developer mode to control stuff like ugly outputs helpful to developers
+     */
+    protected final boolean developerMode;    
 
     /**
      * Subclass of RTWBag that we use to return from getPointers
@@ -343,8 +349,6 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
     
     @Override protected void deleteValue(RTWLocation location, RTWValue value) {
         try {
-            // log.debug("bkdb: SLSS deleteValue(" + location + ", " + value + ")");
-
             // For our delete code, we'll use the running example of deleting <Japan> value from the
             // <Gojira, attacks> slot.
 
@@ -376,7 +380,6 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
             RTWPointerValue wholeBelief = new RTWPointerValue(wholeLocation);  // FODO: requires deep equality with RTWPointerValue
             while (true) {
                 RTWListValue subslots = super.getSubslots(assertionPointersSlot);
-                // log.debug("bkdb: subslots of " + assertionPointersSlot + " are " + subslots);
                 if (subslots == null) break;
                 String subslot = subslots.get(0).asString();
                 RTWLocation s = assertionPointersSlot.subslot(subslot);
@@ -387,7 +390,7 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
                 // ones to do with references to <Gojira, attacks, =<Japan>> could well go on to
                 // cause an avalance of deletes from pointers to that pointer.  One more reason for
                 // using refetch-and-delete-next-element everywhere.
-                log.debug("bkdb: recurse to delete " + wholeBelief + " from "  + p.getDestination().subslot(subslot));
+                if (developerMode) log.debug("recurse to delete " + wholeBelief + " from "  + p.getDestination().subslot(subslot));
                 deleteValue(p.getDestination().subslot(subslot), wholeBelief);
             }
 
@@ -421,7 +424,7 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
                 // know location must have a parent because top-level entities cannot be used as
                 // slots.
                 RTWValue pointerValue = new RTWPointerValue(location.parent());
-                log.debug("bkdb: now we will delete hidden pointer " + pointerValue + " from " + pointerSlot);
+                if (developerMode) log.debug("now we will delete hidden pointer " + pointerValue + " from " + pointerSlot);
                 if (!super.getLoc(pointerSlot).containsValue(pointerValue))  //bkdb: the dance of location attachment
                     throw new RuntimeException("Missing hidden backpointer " + pointerValue
                             + " in " + pointerSlot + ".  Existent backpointers are: "
@@ -439,8 +442,6 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
 
     @Override protected void signalDeleteSlot(RTWLocation location) {
         try {
-            // log.debug("bkdb:signalDeleteSlot for " + location);
-
             // Read the comments inside deleteValue first.
 
             // Basically, what we have to do is check for and delete any RTWPointerValue values that
@@ -474,7 +475,7 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
                 String subslot = subslots.get(0).asString();
                 RTWLocation s = assertionPointersSlot.subslot(subslot);
                 RTWPointerValue p = (RTWPointerValue)s.iter().iterator().next();
-                log.debug("bkdb: recurse to delete " + wholeBelief + " from "  + p.getDestination().subslot(subslot));
+                if (developerMode) log.debug("recurse to delete " + wholeBelief + " from "  + p.getDestination().subslot(subslot));
                 deleteValue(p.getDestination().subslot(subslot), wholeBelief);
             }
 
@@ -483,7 +484,7 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
             if (location.size() == 2) {
                 RTWLocation entity = location.parent();
                 if (getSubslots(entity) == null) {
-                    log.debug("bkdb: Detected delete of " + entity);
+                    if (developerMode) log.debug("Detected delete of " + entity);
                     assertionPointersSlot = entity.append(pointerSlotName);
                     wholeBelief = new RTWPointerValue(entity);
                     while (true) {
@@ -492,7 +493,7 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
                         String subslot = subslots.get(0).asString();
                         RTWLocation s = getLoc(assertionPointersSlot.subslot(subslot));  // location store attachment
                         RTWPointerValue p = (RTWPointerValue)s.iter().iterator().next();
-                        log.debug("bkdb: recurse to delete " + wholeBelief + " from "  + p.getDestination().subslot(subslot));
+                        if (developerMode) log.debug("recurse to delete " + wholeBelief + " from "  + p.getDestination().subslot(subslot));
                         deleteValue(p.getDestination().subslot(subslot), wholeBelief);
                     }
                 }
@@ -507,6 +508,12 @@ public class StringListSuperStore<SLSM extends StringListStoreMap> extends Strin
      */
     public StringListSuperStore(SLSM slsm) {
         super(slsm);
+
+        // We don't actually have a properties file of our own yet.  The only properties that we're
+        // interested in are sort of "global NELL" settings, which, for now, are accumulated in
+        // MBL's properties file.  So we just continue that practice for the time being.  bk:prop
+        Properties properties = TheoFactory.getProperties();
+        developerMode = properties.getPropertyBooleanValue("developerMode", false);
     }
 
     @Override public void open(String filename, boolean openInReadOnlyMode) {

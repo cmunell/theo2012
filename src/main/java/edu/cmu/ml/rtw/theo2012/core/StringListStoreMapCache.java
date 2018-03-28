@@ -1,7 +1,9 @@
 package edu.cmu.ml.rtw.theo2012.core;
 
 import java.util.Iterator;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import edu.cmu.ml.rtw.util.FasterLRUCache;
 import edu.cmu.ml.rtw.util.Logger;
@@ -115,7 +117,6 @@ public abstract class StringListStoreMapCache {
      * perhaps far too few buckets at 131M!)
      */
     protected FasterLRUCache<String, RTWValue> cache = null;
-    protected FasterLRUCache.Item<String, RTWValue> decached = null;
 
     // 2013-03-07: It became clear during testing of the JSON0 query API that thread starvation was
     // a real issue.  The presumed mode of failure is that most KB operations are KB-intensive
@@ -145,7 +146,21 @@ public abstract class StringListStoreMapCache {
     // yet know the best way to arrange threading, and that contention for KB access can be a
     // killer, so it's safe to make this change in the sense that we'll wind up reinvestigating this
     // locking mechanism if it winds up making a difference.
-    private final ReentrantLock getValueWithCacheLock = new ReentrantLock(true);
+    //
+    // 2018-02-06: Changing everything to use a single ReentrantReadWriteLock rather than
+    // synchronization in order to speed up multithreaded read-write operation, specifically to
+    // speed up the devleopment cycle for Theo2012Converter.  This is worth noting particularly
+    // because it's been five years since coherent thought has been given to threading.  One would
+    // want to revert to a version prior to this date for a well-vetted known stable and working
+    // version should there be any suspicion that the implemenatation after this date is
+    // harebrained.
+    private final ReentrantReadWriteLock cacheLock = new ReentrantReadWriteLock(true);
+    private final Lock cacheReadLock = cacheLock.readLock();
+    private final Lock cacheWriteLock = cacheLock.writeLock();
+
+    private final ReentrantReadWriteLock storeLock = new ReentrantReadWriteLock(true);
+    private final Lock storeReadLock = storeLock.readLock();
+    private final Lock storeWriteLock = storeLock.writeLock();
 
     protected int kbCacheSize;
     protected boolean writeBack;
@@ -171,9 +186,6 @@ public abstract class StringListStoreMapCache {
      */
     public StringListStoreMapCache(int cacheSize, boolean writeBack, boolean readOnly,
             boolean forceAlwaysDirty) {
-        decached = new FasterLRUCache.Item<String, RTWValue>();
-
-        kbCacheSize = cacheSize;
         this.writeBack = writeBack;
         this.readOnly = readOnly;
         this.forceAlwaysDirty = forceAlwaysDirty;
@@ -191,28 +203,43 @@ public abstract class StringListStoreMapCache {
     // This could be especially useful in read/write situtions where we necessarily want to be able
     // to go as fast as the underlying storage mechanism can possibly allow.
     protected RTWListValue getValueWithCache(String location) {
-        getValueWithCacheLock.lock();
+        RTWValue value = null;
+        RTWValue valueForCache = null;
+        cacheReadLock.lock();
         try {
-            RTWValue value = cache.get(location);
+            value = cache.get(location);
             if (value != null) {
                 if (value.equals(SLOT_DOESNT_EXIST)) return null;
                 else return (RTWListValue)value;
             }
-         
-            value = get(location);
-                    
-            RTWValue valueForCache = value;
-            if (valueForCache == null) valueForCache = SLOT_DOESNT_EXIST;
-
-            decached.clear();
-            cache.put(location, valueForCache, false || (forceAlwaysDirty && !readOnly), decached);
-            if (decached.getKey() != null)
-                commitDirty(decached.getKey(), decached.getValue(), false);
-
-            return (RTWListValue)value;
         } finally {
-            getValueWithCacheLock.unlock();
+            cacheReadLock.unlock();
         }
+
+        // This is the main time sink, so it's valuable to do outside of the cache lock.  We just
+        // have to make sure we don't get while putting.  If we do concurrent gets of the same
+        // location then that's technically wasted time, but it shouldn't result in incorrect
+        // behavior.
+        storeReadLock.lock();
+        try {
+            value = get(location);
+        } finally {
+            storeReadLock.unlock();
+        }
+                    
+        valueForCache = value;
+        if (valueForCache == null) valueForCache = SLOT_DOESNT_EXIST;
+
+        FasterLRUCache.Item<String, RTWValue> decached = new FasterLRUCache.Item<String, RTWValue>();
+        cacheWriteLock.lock();
+        try {
+            cache.put(location, valueForCache, false || (forceAlwaysDirty && !readOnly), decached);
+        } finally {
+            cacheWriteLock.unlock();
+        }
+        if (decached.getKey() != null)
+            commitDirty(decached.getKey(), decached.getValue(), false);
+        return (RTWListValue)value;
     }
 
     /**
@@ -225,32 +252,19 @@ public abstract class StringListStoreMapCache {
             if (readOnly)
                 throw new RuntimeException("Internal error: Should not have had a dirty entry to commit on a read-only KB");
 
-            if (value.equals(SLOT_DOESNT_EXIST)) {
-                remove(location);
-            } else {
-                put(location, (RTWListValue)value, mightMutate);
+            storeWriteLock.lock();
+            try {
+                if (value.equals(SLOT_DOESNT_EXIST)) {
+                    remove(location);
+                } else {
+                    put(location, (RTWListValue)value, mightMutate);
+                }
+            } finally {
+                storeWriteLock.unlock();
             }
         } catch (Exception e) {
             throw new RuntimeException("commitDirty(\"" + location + "\", " + value + ")", e);
         }
-    }
-
-    protected RTWListValue getValueGuts(String location) {
-        try {
-            if (location == null)
-                throw new RuntimeException("location is null");
-
-            RTWListValue v;
-            if (cache == null) v = get(location);
-            else v = getValueWithCache(location);
-            return v;
-        } catch (Exception e) {
-            throw new RuntimeException("getValueGuts(\"" + location + "\")", e);
-        }
-    }
-
-    protected synchronized RTWListValue getValueGutsSynchronized(String location) {
-        return getValueGuts(location);
     }
 
     /**
@@ -262,8 +276,13 @@ public abstract class StringListStoreMapCache {
      */
     public RTWListValue getValue(String location) {
         try {
-            if (readOnly) return getValueGuts(location);
-            else return getValueGutsSynchronized(location);
+            if (location == null)
+                throw new RuntimeException("location is null");
+
+            RTWListValue v;
+            if (cache == null) v = get(location);
+            else v = getValueWithCache(location);
+            return v;
         } catch (Exception e) {
             throw new RuntimeException("getValue(\"" + location + "\")", e);
         }
@@ -272,31 +291,38 @@ public abstract class StringListStoreMapCache {
     /**
      * Write a value to the KB by way of the cache
      */
-    public synchronized RTWListValue putValue(String location, RTWListValue value) {
+    public RTWListValue putValue(String location, RTWListValue value) {
         try {
             if (location == null)
                 throw new RuntimeException("location is null");
             if (value == null)
                 throw new RuntimeException("value is null");
 
-            RTWValue previous;
-            if (cache == null) {
-                previous = get(location);
-                commitDirty(location, value, true); // no guarantee of immutability
-            } else if (!writeBack) {
-                decached.clear();
-                previous = cache.put(location, value, false || (forceAlwaysDirty && !readOnly), decached);
-                if (decached.getKey() != null)
-                    commitDirty(decached.getKey(), decached.getValue(), false);
-                commitDirty(location, value, true); // no gaurantee of immutability
-            } else {
-                decached.clear();
-                previous = cache.put(location, value, true, decached);
-                if (decached.getKey() != null)
-                    commitDirty(decached.getKey(), decached.getValue(), false);
+            // It's possible that locking here could be finer-grained, but at present it's not
+            // interesting to consider.
+            cacheWriteLock.lock();
+            try {
+                RTWValue previous;
+                if (cache == null) {
+                    previous = get(location);
+                    commitDirty(location, value, true); // no guarantee of immutability
+                } else if (!writeBack) {
+                    FasterLRUCache.Item<String, RTWValue> decached = new FasterLRUCache.Item<String, RTWValue>();
+                    previous = cache.put(location, value, false || (forceAlwaysDirty && !readOnly), decached);
+                    if (decached.getKey() != null)
+                        commitDirty(decached.getKey(), decached.getValue(), false);
+                    commitDirty(location, value, true); // no gaurantee of immutability
+                } else {
+                    FasterLRUCache.Item<String, RTWValue> decached = new FasterLRUCache.Item<String, RTWValue>();
+                    previous = cache.put(location, value, true, decached);
+                    if (decached.getKey() != null)
+                        commitDirty(decached.getKey(), decached.getValue(), false);
+                }
+                if (previous == null || previous.equals(SLOT_DOESNT_EXIST)) return null;
+                else return (RTWListValue)previous;
+            } finally {
+                cacheWriteLock.unlock();
             }
-            if (previous == null || previous.equals(SLOT_DOESNT_EXIST)) return null;
-            else return (RTWListValue)previous;
         } catch (Exception e) {
             throw new RuntimeException("putValue(\"" + location + "\", " + value + ")", e);
         }
@@ -305,50 +331,79 @@ public abstract class StringListStoreMapCache {
     /**
      * Remove a value from the KB in a cache-consistent manner
      */
-    public synchronized RTWListValue removeValue(String location) {
+    public RTWListValue removeValue(String location) {
         if(readOnly)
             throw new RuntimeException("Can't remove on read-only KB");
 
         if (cache == null) {
-            RTWValue cur = get(location);
-            remove(location);
-            if (cur == null || cur.equals(SLOT_DOESNT_EXIST)) return null;
-            else return (RTWListValue)cur;
+            storeWriteLock.lock();
+            try {
+                RTWValue cur = get(location);
+                remove(location);
+                if (cur == null || cur.equals(SLOT_DOESNT_EXIST)) return null;
+                else return (RTWListValue)cur;
+            } finally {
+                storeWriteLock.unlock();
+            }
         }
 
-        RTWValue cur = cache.get(location);
-        if (cur == null) {
-            remove(location);
-            decached.clear();
-            cache.put(location, SLOT_DOESNT_EXIST, false, decached);
-            if (decached.getKey() != null)
-                commitDirty(decached.getKey(), decached.getValue(), false);
-            return null;
-        } else if (cur.equals(SLOT_DOESNT_EXIST)) {
-            return null;
-        } else {
-            if (!writeBack) {
-                remove(location);
-                decached.clear();
+        // It's possible that locking here could be finer-grained, but at present it's not
+        // interesting to consider.
+        cacheWriteLock.lock();
+        try {
+            RTWValue cur = cache.get(location);
+            if (cur == null) {
+                storeWriteLock.lock();
+                try {
+                    remove(location);
+                } finally {
+                    storeWriteLock.unlock();
+                }
+                FasterLRUCache.Item<String, RTWValue> decached = new FasterLRUCache.Item<String, RTWValue>();
                 cache.put(location, SLOT_DOESNT_EXIST, false, decached);
                 if (decached.getKey() != null)
                     commitDirty(decached.getKey(), decached.getValue(), false);
+                return null;
+            } else if (cur.equals(SLOT_DOESNT_EXIST)) {
+                return null;
             } else {
-                decached.clear();
-                cache.put(location, SLOT_DOESNT_EXIST, true, decached);
-                if (decached.getKey() != null)
-                    commitDirty(decached.getKey(), decached.getValue(), false);
+                if (!writeBack) {
+                    storeWriteLock.lock();
+                    try {
+                        remove(location);
+                    } finally {
+                        storeWriteLock.unlock();
+                    }
+                    FasterLRUCache.Item<String, RTWValue> decached = new FasterLRUCache.Item<String, RTWValue>();
+                    cache.put(location, SLOT_DOESNT_EXIST, false, decached);
+                    if (decached.getKey() != null)
+                        commitDirty(decached.getKey(), decached.getValue(), false);
+                } else {
+                    FasterLRUCache.Item<String, RTWValue> decached = new FasterLRUCache.Item<String, RTWValue>();
+                    cache.put(location, SLOT_DOESNT_EXIST, true, decached);
+                    if (decached.getKey() != null)
+                        commitDirty(decached.getKey(), decached.getValue(), false);
+                }
+                return (RTWListValue)cur;
             }
-            return (RTWListValue)cur;
+        } finally {
+            cacheWriteLock.unlock();
         }
     }
 
     /**
      * Write all dirty cache entries to the KB and clear the cache.
      */
-    public synchronized void clear() {
-        commitAllDirty(false);
-        if (cache != null) cache.clear();
+    public void clear() {
+        // It's possible that locking here could be finer-grained, but at present it's not
+        // interesting to consider.
+        cacheWriteLock.lock();
+        try {
+            commitAllDirty(false);
+            if (cache != null) cache.clear();
+        } finally {
+            cacheWriteLock.unlock();
+        }
     }
 
     /**
@@ -358,17 +413,24 @@ public abstract class StringListStoreMapCache {
      */
     public void commitAllDirty(boolean mightMutate) {
         if (cache != null) {
-            // Make sure to not mark anything in the cache clean if forceAlwaysDirty has been
-            // set because otherwise we have to assume everything is dirty at all times due to
-            // the possibility of the calling code directly modifying one of the values on its
-            // own.
-            Iterator<FasterLRUCache.Item<String, RTWValue>> it;
-            if (forceAlwaysDirty) it = cache.dirtyIterator();
-            else it = cache.cleaningDirtyIterator();
+            // It's possible that locking here could be finer-grained, but at present it's not
+            // interesting to consider.
+            cacheWriteLock.lock();
+            try {
+                // Make sure to not mark anything in the cache clean if forceAlwaysDirty has been
+                // set because otherwise we have to assume everything is dirty at all times due to
+                // the possibility of the calling code directly modifying one of the values on its
+                // own.
+                Iterator<FasterLRUCache.Item<String, RTWValue>> it;
+                if (forceAlwaysDirty) it = cache.dirtyIterator();
+                else it = cache.cleaningDirtyIterator();
 
-            while (it.hasNext()) {
-                FasterLRUCache.Item<String, RTWValue> d = it.next();
-                commitDirty(d.getKey(), d.getValue(), mightMutate);
+                while (it.hasNext()) {
+                    FasterLRUCache.Item<String, RTWValue> d = it.next();
+                    commitDirty(d.getKey(), d.getValue(), mightMutate);
+                }
+            } finally {
+                cacheWriteLock.unlock();
             }
         }
     }
@@ -385,13 +447,20 @@ public abstract class StringListStoreMapCache {
      *
      * This is likely to entail a cache flush.
      */
-    public synchronized void resize(int newSize) {
-        commitAllDirty(false);
-        kbCacheSize = newSize;
-        if (kbCacheSize > 0) {
-            cache = new FasterLRUCache<String, RTWValue>(kbCacheSize);
-        } else {
-            cache = null;
+    public void resize(int newSize) {
+        // It's possible that locking here could be finer-grained, but at present it's not
+        // interesting to consider.
+        cacheWriteLock.lock();
+        try {
+            commitAllDirty(false);
+            kbCacheSize = newSize;
+            if (kbCacheSize > 0) {
+                cache = new FasterLRUCache<String, RTWValue>(kbCacheSize);
+            } else {
+                cache = null;
+            }
+        } finally {
+            cacheWriteLock.unlock();
         }
     }
 
@@ -408,14 +477,21 @@ public abstract class StringListStoreMapCache {
      * The onus, then, is on the calling code to ensure that values are never modified directly, as
      * changes in that case might be lost.
      */
-    public synchronized void setForceAlwaysDirty(boolean forceAlwaysDirty) {
-        if (forceAlwaysDirty != this.forceAlwaysDirty) {
-            this.forceAlwaysDirty = forceAlwaysDirty;
-
-            // If this is being turned off, we might wonder if we need to assume that those things
-            // already in the cache all have to be marked dirty.  But the cache already forces all
-            // entries to be marked dirty whenever forceAlwaysDirty is true, so we need take no
-            // further action here.
+    public void setForceAlwaysDirty(boolean forceAlwaysDirty) {
+        // It's possible that locking here could be finer-grained, but at present it's not
+        // interesting to consider.
+        cacheWriteLock.lock();
+        try {
+            if (forceAlwaysDirty != this.forceAlwaysDirty) {
+                this.forceAlwaysDirty = forceAlwaysDirty;
+                
+                // If this is being turned off, we might wonder if we need to assume that those things
+                // already in the cache all have to be marked dirty.  But the cache already forces all
+                // entries to be marked dirty whenever forceAlwaysDirty is true, so we need take no
+                // further action here.
+            }
+        } finally {
+            cacheWriteLock.unlock();
         }
     }
 

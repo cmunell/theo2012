@@ -97,7 +97,8 @@ public class TheoFactory {
         // No auto-detection yet.  If this manages to still be unset, continue doctrine of
         // defaulting to mdb and call it the fault of the application or end user if he decided to
         // do something to violate the current faux-automatic stuff.
-        String format = properties.getProperty("defaultKBFormat", "mdb");
+        // bkdb: disabled for wedge-1 development String format = properties.getProperty("defaultKBFormat", "mdb");
+        String format = properties.getProperty("defaultKBFormat", "tch");
 
         if (format.equals("tch")) {
             theo1 = TheoFactoryTCH.openTheo1(name, readOnly, create);

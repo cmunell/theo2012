@@ -1068,6 +1068,11 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
 
     @Override public MyEntity get(RTWLocation location) {
         try {
+            // bkisiel 2018-02-01: NELL's ConceptRelationChooser has a hot spot here via
+            // RTWLocation.containsValu on what might or might not be ultimately the same KB slot.
+            // One wonders if it would be useful to precompute or cache the results of this loop.
+            // We'll see if this becomes a common sort of hot spot.
+
             // We have to unwrap all of the entities in the given location -- this is going to be
             // the basis of our MyEntity.wrappedEntity variable, so we need everything in terms of
             // the next layer of Theo down.
