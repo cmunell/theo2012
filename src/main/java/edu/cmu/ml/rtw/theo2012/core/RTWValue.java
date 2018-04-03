@@ -162,7 +162,7 @@ public interface RTWValue extends Cloneable, Comparable<RTWValue> {
                     pos = pos + 2;
                 }
 
-                byte[] bytes = v.asString().getBytes("UTF-8");
+                byte[] bytes = str.getBytes("UTF-8");
                 byte[] dst = new byte[bytes.length + 1];
                 dst[0] = 's';
                 System.arraycopy(bytes, 0, dst, 1, bytes.length);
@@ -349,7 +349,7 @@ public interface RTWValue extends Cloneable, Comparable<RTWValue> {
                     if (c == 1) {
                         v = v.substring(0, pos) + (char)1 + v.substring(pos+2);
                     } else if (c == 2) {
-                        v = v.substring(0, pos) + (char)2 + v.substring(pos+2);
+                        v = v.substring(0, pos) + (char)0 + v.substring(pos+2);
                     } else if (c == 3) {
                         v = v.substring(0, pos) + '\t' + v.substring(pos+2);
                     } else if (c == 4) {
