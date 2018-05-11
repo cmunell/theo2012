@@ -1181,16 +1181,16 @@ public class StoreInverselessTheo1 extends Theo1Base implements Theo1 {
                                 RTWPointerValue p = (RTWPointerValue)v;
                                 String g = ((RTWPointerValue)p).getDestination().getPrimitiveEntity();
                                 if (allSlots.contains(g)) {
-                                    log.debug(g + ", generalization of " + entity + " is a slot");
+                                    log.debug("Deleting generalization " + value + " of " + entity + ": found other generalization " + g + " to be a slot");
                                     stillSlot = true;
                                     break;
                                 } else {
-                                    log.debug(g + ", generalization of " + entity + " is not a slot");
+                                    log.debug("Deleting generalization " + value + " of " + entity + ": found other generalization " + g + " to not be a slot");
                                 }
                             }
                             if (!stillSlot) {
                                 if (allSlots.remove(entity))
-                                    log.debug("bkdb: removed slot " + entity);
+                                    log.debug("Deleting generalization " + value + " of " + entity + ": " + entity + " is now no longer a slot");
                                 // TODO: used-as-slot constraint
                             }
                         }
