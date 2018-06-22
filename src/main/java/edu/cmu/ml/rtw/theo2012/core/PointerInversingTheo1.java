@@ -485,7 +485,7 @@ public class PointerInversingTheo1 extends Theo1Base implements Theo1 {
                     // symmetric beliefs need to be stored in both directions.
                     // log.debug("bkdb: addValue(" + slot + ", " + value + " master.getName()=" + master.getName() + " , slotName=" + slotName + " equals=" + master.getName().equals(slotName));
                     if (master.getName().equals(slotName)) {   // bkdb: seems it could really simplify to have Slot.equals required to be defined in terms of slot name, but I'd be willing to give it a pass if it's not justified by being needed elsewhere
-                        log.debug("bkdb: symmetric case: adding " + wrappedEntity + " " + slot + " " + value);
+                        log.debug("bkdb: symmetric case: also adding non-flipped assertion " + wrappedEntity + " " + slot + " " + value);
                         returnValue = wrappedEntity.addValue(slot, value);
                     }
 
@@ -2226,7 +2226,7 @@ public class PointerInversingTheo1 extends Theo1Base implements Theo1 {
      * This performs a recursive traversal on all slots, and checks each one for an "inverse" slot.
      */
     protected void computeS2M() {
-        log.debug("Collecting metdata for inversing layer...");
+        log.debug("Collecting metadata for inversing layer...");
         slave2Master.clear();
         master2Slave.clear();
         otherSet.clear();
