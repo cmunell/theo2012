@@ -162,6 +162,9 @@ public class TheoTool {
                 "                  deleteValue: Delete value <arg3> from the slot <arg2> attached\n" +
                 "                    to the entity <arg1>                                        \n" +
                 "                                                                                \n" +
+                "                  deleteAllValue: Delete values from the slot <arg2> attached   \n" +
+                "                    to the entity <arg1>                                        \n" +
+                "                                                                                \n" +
                 "                  deleteEntity: Delete the entity <arg1>                        \n" +
                 "                                                                                \n" +
                 "                  pre: Print the entity <arg1> and all other assertions attached\n" +
@@ -178,6 +181,13 @@ public class TheoTool {
                 " <arg1/2/3>       The entities that act as arguments to the given commands.  In \n" +
                 "                    general, these may be composite entities, not just primitive\n" +
                 "                    entities.  Extra arguments will be silently ignored.        \n" +
+                "                                                                                \n" +
+                " Note: Parsing of arg1, arg2, and arg3 is sloppy at present.  arg1 is always    \n" +
+                "       taken to designate a primitive entity.  When arg2 must name a slot it is \n" +
+                "       taken to designate the slot entity.  The sloppiness comes when arg2 or   \n" + 
+                "       arg3 indicates a slot value.  For the time being, slot values are always \n" + 
+                "       taken to be strings except when they are enclosed by < >, in which case  \n" +
+                "       the string inside is taken to name a primitive entity.                   \n" +
                 ""
                 );
     }
@@ -226,7 +236,7 @@ public class TheoTool {
         }
 
         boolean readOnly = true;
-        if (cmd.equals("addValue") || cmd.equals("deleteValue") || cmd.equals("deleteEntity"))
+        if (cmd.contains("add") || cmd.contains("delete"))
             readOnly = false;
         Theo2 theo = TheoFactory.open(kbLocation, readOnly, !readOnly, options);
 
@@ -259,6 +269,9 @@ public class TheoTool {
             } else if (cmd.equals("deleteValue")) {
                 RTWValue value = StoreInverselessTheo1.parseValueArgument(arg3, theo);
                 e.deleteValue(arg2, value);
+                System.out.println(e.getQuery(arg2).valueDump());
+            } else if (cmd.equals("deleteAllValues")) {
+                e.deleteAllValues(arg2);
                 System.out.println(e.getQuery(arg2).valueDump());
             } else if (cmd.equals("deleteEntity")) {
                 System.out.println(theo.deleteEntity(e));
