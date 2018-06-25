@@ -617,11 +617,8 @@ public class StringListStore<SLSM extends StringListStoreMap> implements Store {
 
     /**
      * Point at which we switch from storing lists of values in slots to sets of values in slots
-     *
-     * This value has not been empirically tuned beyond verifying that it's not too big to keep
-     * very-large slots from being problematic.
      */
-    protected final int maxListSize = 100;
+    protected final int kbMaxListSize;
 
     /**
      * Flag to control our historical disallowment of entity names containing uppercase letters
@@ -1039,11 +1036,24 @@ public class StringListStore<SLSM extends StringListStoreMap> implements Store {
                 signalDeleteSlot(location);
             } else {
                 if (curVal instanceof RTWSetListValue) {
-                    curVal.remove(value);
-                    slsm.put(slotAddr, curVal);  // Notifies slsm to mark this entry dirty
+                    if (curVal instanceof RTWImmutableSetListValue) {
+                        if (curVal.size() > kbMaxListSize) {
+                            RTWSetListValue newVal = RTWSetListValue.copy(curVal);
+                            newVal.remove(value);
+                            slsm.put(slotAddr, newVal);
+                        } else {
+                            RTWArrayListValue newList = new RTWArrayListValue(curVal.size()-1);
+                            for (RTWValue v : curVal)
+                                if (!v.equals(value)) newList.add(v);
+                            slsm.put(slotAddr, newList);
+                        }
+                    } else {
+                        curVal.remove(value);
+                        slsm.put(slotAddr, curVal);  // Notifies slsm to mark this entry dirty
+                    }
                 } else if (curVal instanceof RTWArrayListValue) {
                     if (curVal instanceof RTWImmutableListValue) {
-                        if (curVal.size() > maxListSize) {
+                        if (curVal.size() > kbMaxListSize) {
                             RTWSetListValue newVal = RTWSetListValue.copy(curVal);
                             newVal.remove(value);
 
@@ -1077,6 +1087,7 @@ public class StringListStore<SLSM extends StringListStoreMap> implements Store {
                         }
                     } else {
                         curVal.remove(value);
+                        slsm.put(slotAddr, curVal);  // Notifies slsm to mark this entry dirty
                     }
                 } else {
                     throw new RuntimeException("Unexpected slot container class type "
@@ -1459,6 +1470,7 @@ public class StringListStore<SLSM extends StringListStoreMap> implements Store {
     public StringListStore(SLSM slsm) {
         this.slsm = slsm;
         Properties properties = TheoFactory.getProperties();
+        kbMaxListSize = properties.getPropertyIntegerValue("kbMaxListSize", 100);
         preventUppercase = properties.getPropertyBooleanValue("preventUppercase", false);  // bkdb: be sure to coordinate agreement on this default between InMind and NELL during the wedge merge
     }
     
@@ -1801,11 +1813,11 @@ public class StringListStore<SLSM extends StringListStoreMap> implements Store {
                 throw new RuntimeException("A top-level entity may not be used as a slot");
 
             // 2012-09-11: Here we auto-convert the RTWListValue object for this slot into an
-            // RTWSetListValue if the number of values exceeds maxListSize.  This makes it possible
-            // to efficiently manipulate slots that contain too many elements without having to
-            // change the underlying DB to store sets or refactor StringListStoreMap to store
-            // something other than an RTWListValue.  We persue this stopgap for now in order to
-            // push forward on the effort to get everything using Theo2012.  But it will be
+            // RTWSetListValue if the number of values exceeds kbMaxListSize.  This makes it
+            // possible to efficiently manipulate slots that contain too many elements without
+            // having to change the underlying DB to store sets or refactor StringListStoreMap to
+            // store something other than an RTWListValue.  We persue this stopgap for now in order
+            // to push forward on the effort to get everything using Theo2012.  But it will be
             // interesting to see how far this gets us.  It even has the potential advantage of
             // being faster than storing sets in the DB by reducing the number of reads and writes,
             // and of reducing the pressure on the DB cache.
@@ -1832,10 +1844,10 @@ public class StringListStore<SLSM extends StringListStoreMap> implements Store {
                     value = RTWImmutableListValue.copy((RTWListValue)value);
 
                 if (curVal instanceof RTWArrayListValue) {
-                    if (!(curVal instanceof RTWImmutableListValue) && curVal.size() <= maxListSize) {
+                    if (!(curVal instanceof RTWImmutableListValue) && curVal.size() <= kbMaxListSize) {
                         curVal.add(value);
                         slsm.put(key, curVal);  // Notifies slsm that this key is dirty
-                    } else if (curVal.size() > maxListSize) {
+                    } else if (curVal.size() > kbMaxListSize) {
                         curVal = RTWSetListValue.append(curVal, value);
                         slsm.put(key, curVal);
                     } else {
@@ -1843,8 +1855,16 @@ public class StringListStore<SLSM extends StringListStoreMap> implements Store {
                         slsm.put(key, curVal);
                     }
                 } else if (curVal instanceof RTWSetListValue) {
-                    curVal.add(value);
-                    slsm.put(key, curVal);  // Notifies slsm that this key is dirty
+                    if (!(curVal instanceof RTWImmutableSetListValue) && curVal.size() >= kbMaxListSize) {
+                        curVal.add(value);
+                        slsm.put(key, curVal);  // Notifies slsm that this key is dirty
+                    } else if (curVal.size() >= kbMaxListSize) {
+                        curVal = RTWSetListValue.append(curVal, value);
+                        slsm.put(key, curVal);
+                    } else {
+                        curVal = RTWArrayListValue.append(curVal, value);
+                        slsm.put(key, curVal);
+                    }
                 } else {
                     throw new RuntimeException("Unexpected slot container class type "
                             + curVal.getClass().getName());

@@ -1,8 +1,11 @@
 package edu.cmu.ml.rtw.theo2012.core;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Base type for all values storable in a Theo slot<p>
@@ -162,7 +165,7 @@ public interface RTWValue extends Cloneable, Comparable<RTWValue> {
                     pos = pos + 2;
                 }
 
-                byte[] bytes = str.getBytes("UTF-8");
+                byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
                 byte[] dst = new byte[bytes.length + 1];
                 dst[0] = 's';
                 System.arraycopy(bytes, 0, dst, 1, bytes.length);
@@ -180,12 +183,22 @@ public interface RTWValue extends Cloneable, Comparable<RTWValue> {
                 Iterator<RTWValue> it = lv.iterator();
                 for (int i = 0; i < lv.size(); i++) {
                     elementList[i*2+1] = it.next().toUTF8();
-                    elementList[i*2] = Integer.toString(elementList[i*2+1].length).getBytes();
+                    elementList[i*2] = Integer.toString(elementList[i*2+1].length).getBytes(StandardCharsets.UTF_8);
                     totalLength = totalLength + elementList[i*2].length + elementList[i*2+1].length;
                 }
                     
                 final byte[] dst = new byte[totalLength + 1];
-                dst[0] = 'l';
+
+                // 2018-05-14: historically, 'l' has indicated a list, but sometimes order is
+                // important and sometimes it is not.  Order is not important, for instance for the
+                // values in a single slot of the KB; a set is often the preferable storage
+                // mechanism.  So if this list is actually a set, then indicate that with an 'u'
+                // ("unsorted list") instead, and then when marshalling that back out of UTF8, there
+                // will be a hint that order was not important when the RTWListValue was written,
+                // indicating that it is safe to ignore order if so desired when reconstructing an
+                // RTWListValue.
+                if (v instanceof RTWSetListValue) dst[0] = 'u';
+                else dst[0] = 'l';
                 int dstOffset = 1;
                 for (int i = 0; i < elementList.length; i++) {
                     final int l = elementList[i].length;
@@ -197,14 +210,14 @@ public interface RTWValue extends Cloneable, Comparable<RTWValue> {
             else if (v instanceof RTWDoubleValue) {
                 // Could be faster, but rendering doubles is also tricky.  More speed here and
                 // parsing might better come from storing them binarily.
-                byte[] bytes = Double.toString(v.asDouble()).getBytes();
+                byte[] bytes = Double.toString(v.asDouble()).getBytes(StandardCharsets.UTF_8);
                 byte[] dst = new byte[bytes.length + 1];
                 dst[0] = 'd';
                 System.arraycopy(bytes, 0, dst, 1, bytes.length);
                 return dst;
             }
             else if (v instanceof RTWIntegerValue) {
-                byte[] bytes = Integer.toString(v.asInteger()).getBytes();
+                byte[] bytes = Integer.toString(v.asInteger()).getBytes(StandardCharsets.UTF_8);
                 byte[] dst = new byte[bytes.length + 1];
                 dst[0] = 'i';
                 System.arraycopy(bytes, 0, dst, 1, bytes.length);
@@ -237,12 +250,12 @@ public interface RTWValue extends Cloneable, Comparable<RTWValue> {
                 for (int i = 0; i < l.size(); i++) {
                     if (l.isSlot(i)) {
                         elementList[i*2+1] = new RTWStringValue(l.getAsSlot(i)).toUTF8();
-                        elementList[i*2] = Integer.toString(elementList[i*2+1].length).getBytes();
+                        elementList[i*2] = Integer.toString(elementList[i*2+1].length).getBytes(StandardCharsets.UTF_8);
                         totalLength = totalLength + elementList[i*2].length + elementList[i*2+1].length;
                     } else {
                         // Same as above, but leave 1 extra byte for the 'e' prefix
                         elementList[i*2+1] = l.getAsElement(i).getVal().toUTF8();
-                        elementList[i*2] = Integer.toString(elementList[i*2+1].length).getBytes();
+                        elementList[i*2] = Integer.toString(elementList[i*2+1].length).getBytes(StandardCharsets.UTF_8);
                         totalLength = totalLength + elementList[i*2].length + elementList[i*2+1].length + 1;
                     }
                 }
@@ -306,7 +319,7 @@ public interface RTWValue extends Cloneable, Comparable<RTWValue> {
      */
     public static RTWValue fromUTF8(String s) {
         try {
-            return fromUTF8(s.getBytes("UTF-8"));
+            return fromUTF8(s.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             throw new RuntimeException("fromUTF8(\"" + s + "\")", e);
         }
@@ -390,7 +403,39 @@ public interface RTWValue extends Cloneable, Comparable<RTWValue> {
                     throw new RuntimeException("After having built " + list, e);
                 }
                 return RTWImmutableListValue.copy(list);
-            }
+            } 
+            else if (bytes[offset] == 'u') {
+                // 2018-05-11: if we find a list that has been designated as unordered when it was
+                // marshalled into UTF8, then take that as a hint that its best used as a set
+                // (presumably for some efficiency aspect) and return it as a set.  We could in the
+                // future offer smarter or finer control over this (as well for the case of an
+                // ordered list) but it is not worth the extra API complexity at this time.
+                final HashSet<RTWValue> set = new HashSet<RTWValue>();
+                try {
+                    offset++;
+                    while (offset < tooFar) {
+                            
+                        // Get # bytes for the next RTWValue element
+                        int nextLength = 0;
+                        while (true) {
+                            final byte b = bytes[offset];
+                            if (b < '0' || b > '9') break;
+                            nextLength = nextLength * 10 + (int)(b - '0');
+                            offset++;
+                        }
+                        RTWValue nextVal = fromUTF8(bytes, offset, offset + nextLength);
+                        if (nextVal == null) {
+                            String element = new String(bytes, offset, nextLength);
+                            throw new RuntimeException("Failed to parse \"" + element + "\"");
+                        }
+                        set.add(nextVal);
+                        offset += nextLength;
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException("After having built " + set, e);
+                }
+                return RTWImmutableSetListValue.copy(set);
+            } 
             else if (bytes[offset] == 'p') {
                 // This is similar to the case of lists
                 List<Object> elements = new ArrayList<Object>();
