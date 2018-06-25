@@ -88,7 +88,7 @@ public class RTWImmutableListValue extends RTWArrayListValue implements RTWValue
     }
 
     /**
-     * Return a mutable RTWArrayListValue copy of the given  list of RTWValues.
+     * Return a mutable RTWArrayListValue copy of the given list of RTWValues.
      */
     public static RTWImmutableListValue copy(List<RTWValue> l) {
         return new RTWImmutableListValue(Collections.unmodifiableList(l));
