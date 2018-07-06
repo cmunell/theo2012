@@ -98,56 +98,122 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
         protected void trapAdd(Slot slot, RTWValue value) {
             try {
                 String slotName = slot.getName();
+                
+                // FODO: We would probably want to have a special accomodate for a fast fetch of the
+                // inverse of each slot in order to avoid performing an extra KB fetch for every add
+                // (or delete) operation.  It's an obvious sort of thing for soe next layer down of
+                // Theo to provide, although it's a little bit cumbersome to do without spending too
+                // much programmer time making an easy and reusable way to present the contents of
+                // the cache (which would probably be some scalar field in a hash map structure or
+                // whatever) as a Query object.
+                //
+                // We could alternatively maintain our own cache here, but then we risk getting out
+                // of sync with whatever might be happening at a lower layer; that should be an
+                // impossibility, but every addiitonal such assumption makes for a potential
+                // debugging headache.
+                //
+                // At present, the overwhelming amount of time spent on a KB fetch is in the
+                // underlying storage mechanism itself (e.g. Tokyo Cabinet) should a slot value not
+                // be in some cache or other, so we will assume for the time being that these extra
+                // fetches will have a marginal impact on total speed; later profiling that
+                // demonstrates the contrary may motivate coming back to this and doing something
+                // more sophisticated.
+                Slot inverse = null;
+                Entity tmp = slot.getQuery("inverse").into1Entity();  // bk:api primitiveentity
+                if (tmp != null && tmp.isSlot()) inverse = tmp.toSlot();
 
                 // We'll filter value by known metadata, if any, first.  Then we can make a
                 // reasonably reasonable assumption below that we don't have to check nrofvalues,
                 // domain, or range for the presence of multiple values.
+                //
+                // Note that Theo Layer 1 will automatically add/delete inverse assertions as an
+                // atomic operation, so we have to check our constraints in both directions.
+                // nrofvalues will have to be checked explicitly.  For domain and range, we can
+                // simply verify that they are set correctly for the inverse relation and then we
+                // need only check that they hold for the assertion being made here.
                 Boolean nrofvalues = nrofvaluesCache.get(slotName);
+                if (developerMode) log.debug("bkdb:RTI: slot=" + slotName + " and nrofvalues=" + nrofvalues);
                 if (nrofvalues != null && nrofvalues == true) {
-                    if (getNumValues(slot) > 0 && !getQuery(slot).into1Value().equals(value))
-                        throw new RuntimeException("nrofvalues=1 slot already contains a value");
+                    Query q = getQuery(slot);
+                    if (q.getNumValues() > 0 && !q.into1Value().equals(value))
+                        throw new RuntimeException("nrofvalues=1 slot already contains value(s)"
+                                + q.valueDump());
                 }
-                String domainPrimitiveEntity = domainCache.get(slotName);
-                if (domainPrimitiveEntity != null) {
-                    if (!within(this, domainPrimitiveEntity, true))
-                        throw new RuntimeException(toString() + " is not in domain "
-                                + domainPrimitiveEntity + " of " + slot);
+                if (inverse != null && value instanceof Entity) {
+                    nrofvalues = nrofvaluesCache.get(inverse.getName());
+                    if (nrofvalues != null && nrofvalues == true) {
+                        Query q = ((Entity)value).getQuery(inverse);
+                        if (q.getNumValues() > 0 && !q.into1Value().equals(this))
+                            throw new RuntimeException(q + " is nrfovalues=1 but already contains value(s): "
+                                    + q.valueDump());
+                    }
                 }
-                RTWValue range = rangeCache.get(slotName);
-                if (range != null) {
-                    if (value instanceof RTWThisHasNoValue) {
-                        // RTWThisHasNoValue is always in range
-                    } else if (range instanceof RTWStringValue) {
-                        String rangeString = range.asString();
-                        if (rangeString.equals("any")) {
-                            // OK
-                        } else if (rangeString.equals("integer")) {
-                            if (!(value instanceof RTWIntegerValue))
-                                throw new RuntimeException("Non-integer value is out of range");
-                        } else if (rangeString.equals("double")) {
-                            if (!(value instanceof RTWDoubleValue))
-                                throw new RuntimeException("Non-double value is out of range");
-                        } else if (rangeString.equals("string")) {
-                            if (!(value instanceof RTWStringValue))
-                                throw new RuntimeException("Non-string value is out of range");
-                        } else if (rangeString.equals("boolean")) {
-                            if (!(value instanceof RTWBooleanValue))
-                                throw new RuntimeException("Non-boolean value is out of range");
-                        } else if (rangeString.equals("list")) {
-                            if (!(value instanceof RTWListValue))
-                                throw new RuntimeException("Non-list value is out of range");
+
+                if (!slotName.startsWith("concept:")) {  // bkdb: temporarily disable for promoted NELL relations, since they allow mere candidacy within a category, inconsistent with Theo semantics
+                    String domainPrimitiveEntity = domainCache.get(slotName);
+                    if (domainPrimitiveEntity != null) {
+                        if (!within(this, domainPrimitiveEntity, true))
+                            throw new RuntimeException(toString() + " is not in domain "
+                                    + domainPrimitiveEntity + " of " + slot);
+                        if (inverse != null) {
+                            RTWValue range = rangeCache.get(inverse.getName());
+                            boolean ok = false;
+                            if (range instanceof Entity)
+                                if (((Entity)range).isPrimitiveEntity())
+                                    if (((Entity)range).toPrimitiveEntity().getName().equals(domainPrimitiveEntity))
+                                        ok = true;
+                            if (!ok)
+                                throw new RuntimeException("Cannot add values to " + slot
+                                        + " slot yet because it has a domain setting of "
+                                        + domainPrimitiveEntity + " but its inverse " + inverse
+                                        + " does not have its range set to the same thing.");
+                        }
+                    }
+                    RTWValue range = rangeCache.get(slotName);
+                    if (range != null) {
+                        if (value instanceof RTWThisHasNoValue) {
+                            // RTWThisHasNoValue is always in range
+                        } else if (range instanceof RTWStringValue) {
+                            String rangeString = range.asString();
+                            if (rangeString.equals("any")) {
+                                // OK
+                            } else if (rangeString.equals("integer")) {
+                                if (!(value instanceof RTWIntegerValue))
+                                    throw new RuntimeException("Non-integer value is out of range");
+                            } else if (rangeString.equals("double")) {
+                                if (!(value instanceof RTWDoubleValue))
+                                    throw new RuntimeException("Non-double value is out of range");
+                            } else if (rangeString.equals("string")) {
+                                if (!(value instanceof RTWStringValue))
+                                    throw new RuntimeException("Non-string value is out of range");
+                            } else if (rangeString.equals("boolean")) {
+                                if (!(value instanceof RTWBooleanValue))
+                                    throw new RuntimeException("Non-boolean value is out of range");
+                            } else if (rangeString.equals("list")) {
+                                if (!(value instanceof RTWListValue))
+                                    throw new RuntimeException("Non-list value is out of range");
+                            } else {
+                                throw new RuntimeException("Internal error: unrecognized range setting "
+                                        + range);
+                            }
+                        } else if (range instanceof PrimitiveEntity) {
+                            String rangePrimitiveEntity = ((PrimitiveEntity)range).getName();
+                            if (!(value instanceof Entity)
+                                    || !within((Entity)value, rangePrimitiveEntity, false))
+                                throw new RuntimeException(value + " is not within range " +
+                                        rangePrimitiveEntity + " of " + slot);
+                            if (inverse != null) {
+                                String domain = domainCache.get(inverse.getName());
+                                if (domain == null || !domain.equals(rangePrimitiveEntity))
+                                    throw new RuntimeException("Cannot add values to " + slot
+                                            + " slot yet because it has a range setting of "
+                                            + rangePrimitiveEntity + " but its inverse " + inverse
+                                            + " does not have its domain set to the same thing.");
+                            }
                         } else {
                             throw new RuntimeException("Internal error: unrecognized range setting "
                                     + range);
                         }
-                    } else if (range instanceof PrimitiveEntity) {
-                        String rangePrimitiveEntity = ((PrimitiveEntity)range).getName();
-                        if (!(value instanceof Entity) || !within((Entity)value, rangePrimitiveEntity, false))
-                                throw new RuntimeException(value + " is not in range " +
-                                        rangePrimitiveEntity + " of " + slot);
-                    } else {
-                        throw new RuntimeException("Internal error: unrecognized range setting "
-                                + range);
                     }
                 }
                     
@@ -211,17 +277,14 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
                         // "inverse" slot) may produce unexpected results when the user does care
                         // about masterinverse, depending on the exact order of operations.
                         if (value instanceof RTWBooleanValue) {
-                            Query inverse = getQuery("inverse");
-                            if (inverse.has1Entity()) {
-                                // NB: we want to operate on the unwrapped entity; otherwise we will
-                                // trap the modification and go into an infinite loop.
-                                Entity them = (Entity)unwrapEntity(inverse.need1Entity());
+                            // NB: we want to operate on the unwrapped entity; otherwise we will
+                            // trap the modification and go into an infinite loop.
+                            Entity them = (Entity)unwrapEntity(inverse);
 
-                                // Note: if this is a symmetric slot then this should be a no-op.
-                                if (!them.equals(wrappedEntity)) {
-                                    them.deleteAllValues("masterinverse");
-                                    them.addValue("masterinverse", new RTWBooleanValue(!value.asBoolean()));
-                                }
+                            // Note: if this is a symmetric slot then this should be a no-op.
+                            if (!them.equals(wrappedEntity)) {
+                                them.deleteAllValues("masterinverse");
+                                them.addValue("masterinverse", new RTWBooleanValue(!value.asBoolean()));
                             }
                         }
                     }
@@ -884,6 +947,11 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
     protected Map<String, RTWValue> rangeCache = new HashMap<String, RTWValue>();
 
     /**
+     * Used by computeMetadataRecurse
+     */
+    protected Set<String> otherSet = new HashSet<String>();
+
+    /**
      * This is used to verify that RTWValues we are given that are Entities are in fact MyEntity
      * objects as we expect, and to unwrap them into the Entity objects of the Theo layer below
      * us.
@@ -988,11 +1056,150 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
     }
 
     /**
+     * Recursive guts of computeS2M.
+     *
+     * Proceses the given entity and then recurses into all entities that generalize to it.
+     *
+     * This will complain and reject recursion into anything that doesn't qualify as a primitive
+     * entity (FODO: we'd arguably run a tighter ship by asking the layer below us for an iterator
+     * over known slots, but that's unnecessary API complication at this point.)
+     *
+     * This assumes that "inverse" is a slot.  Subtlety: inverse is a slot that maintains its own
+     * inverse.  Ordinarily, this would mean that we should not assume that it will be found on both
+     * the master and the slave.  But our rule for symmetric slots like inverse is that we
+     * double-store them, so we can afterall assume it to be present on both the master and the
+     * slave.
+     *
+     * All conditionalities and requirements of {@link addMasterSlaveEntries} apply here.
+     *
+     * TODO: coordination of tolerance; we'll want in all of these things a mode that throws
+     * exceptions.
+     */
+    protected void computeMetadataRecurse(PrimitiveEntity pe) {
+        try {
+            String entity = pe.getName();
+
+            // Terminate recursion if we've been here before
+            if (nrofvaluesCache.get(entity) != null) return;
+            if (domainCache.get(entity) != null) return;
+            if (rangeCache.get(entity) != null) return;
+            if (!otherSet.add(entity)) return;
+
+            Query q;
+            q = pe.getQuery("nrofvalues");
+            if (q.getNumValues() == 1) {
+                RTWValue value = q.need1Value();
+                if (value instanceof RTWIntegerValue && value.asInteger() == 1) {
+                    nrofvaluesCache.put(entity, true);
+                } else {
+                    if (value.equals("any")) {
+                        // OK
+                    } else {
+                        log.warn("Ignoring illegal nrofvalues setting of " + value
+                                + " for " + entity);
+                    }
+                }
+            } else if (q.getNumValues() > 1) {
+                log.warn("Ignoring multiple values in nrofvalues slot of " + entity);
+            }
+
+            q = pe.getQuery("domain");
+            if (q.getNumValues() == 1) {
+                RTWValue value = q.need1Value();
+                if (value instanceof Entity) {
+                    if (((Entity)value).isPrimitiveEntity()) {
+                        domainCache.put(entity,
+                                ((Entity)value).toPrimitiveEntity().getName());
+                    } else {
+                        log.warn("Ignoring non-primitive entity domain setting of "
+                                + value + " for " + entity);
+                    }
+                } else if (value instanceof RTWStringValue && value.asString().equals("belief")) {
+                    domainCache.put(entity, "");
+                } else {
+                    log.warn("Ignoring illegal domain setting of "
+                            + value + " for " + entity);
+                }
+            } else if (q.getNumValues() > 1) {
+                log.warn("Ignoring multiple values in domain slot of " + entity);
+            }
+                
+            q = pe.getQuery("range");
+            if (q.getNumValues() == 1) {
+                RTWValue value = q.need1Value();
+                if (value instanceof RTWStringValue) {
+                    String rangeString = value.asString();
+                    if (rangeString.equals("any")
+                            || rangeString.equals("integer")
+                            || rangeString.equals("double")
+                            || rangeString.equals("string")
+                            || rangeString.equals("boolean")
+                            || rangeString.equals("list")) {
+                        rangeCache.put(entity, value);
+                    } else {
+                        log.warn("Ignoring illegal range setting of " + value
+                                + " for " + entity);
+                    }
+                } else if (value instanceof Entity) {
+                    if (((Entity)value).isPrimitiveEntity()) {
+                        rangeCache.put(entity, value);
+                    } else {
+                        log.warn("Ignoring non-primitive entity range setting of "
+                                + value + " for " + entity);
+                    }
+                } else {
+                    log.warn("Ignoring illegal range setting of "
+                            + value + " for " + entity);
+                }
+            } else if (q.getNumValues() > 1) {
+                log.warn("Ignoring multiple values in range slot of " + entity);
+            }
+
+            // And then recurse
+            for (RTWValue v : pe.getReferringValues("generalizations").iter()) { // bkdb: pointeriteration  // bkdb: legit for this to be cumbersome because we want entity as a string here, but quite possibly a good case study in ease
+                // bkdb: isPrimitiveEntity etc.
+                if (!(v instanceof Entity)) {
+                    // Don't complain; we assume that the layer below us will have already done that.
+                    continue;
+                }
+                if (!((Entity)v).isPrimitiveEntity()) {
+                    // Don't complain; we assume that the layer below us will have already done that.
+                    continue;
+                }
+                computeMetadataRecurse(((Entity)v).toPrimitiveEntity());
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("computeMetadataRecurse(<dst>, " + pe + ")", e);
+        }
+    }
+
+    /**
+     * Repopulate metadata caches based on the content of the KB
+     *
+     * This performs a recursive traversal on all slots to accumulate
+     */
+    protected void computeMetadata() {
+        log.debug("Collecting metadata for BasicTheo2...");
+        nrofvaluesCache.clear();
+        domainCache.clear();
+        rangeCache.clear();
+        otherSet.clear();
+        computeMetadataRecurse(t1.get("slot"));
+        otherSet.clear();
+        if (developerMode) {
+            log.debug("nrofvaluesCache=" + nrofvaluesCache.toString());
+            log.debug("domainCache=" + domainCache.toString());
+            log.debug("rabgeCache=" + rangeCache.toString());
+        }
+    }
+
+    /**
      * What we do when opening (or when we are constructed with an already-open store)
      */
     protected void initialize() {
         if (!checkEssentials(!isReadOnly()))
             throw new RuntimeException("KB lacks essential content.  Re-open in read/write mode to attempt repair.");
+        computeMetadata();
     }
 
     /**
