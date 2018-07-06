@@ -8,6 +8,7 @@ import java.util.List;
 import edu.cmu.ml.rtw.util.Logger;
 import edu.cmu.ml.rtw.util.LogFactory;
 import edu.cmu.ml.rtw.util.Pair;
+import edu.cmu.ml.rtw.util.Properties;
 
 /**
  * Abstract base class for {@link Theo0} implementations that implements all of the convenience and
@@ -21,6 +22,16 @@ import edu.cmu.ml.rtw.util.Pair;
  */
 public abstract class Theo0Base implements Theo0 {
     private final static Logger log = LogFactory.getLogger();
+
+    /**
+     * Developer mode to control stuff like ugly outputs helpful to developers
+     */
+    protected final boolean developerMode;
+
+    protected Theo0Base() {
+        Properties properties = TheoFactory.getProperties();
+        developerMode = properties.getPropertyBooleanValue("developerMode", false);
+    }
 
     @Override public abstract boolean isOpen();
 
@@ -120,6 +131,7 @@ public abstract class Theo0Base implements Theo0 {
                     q.deleteValue(v);
                     deletedSomething = true;
                 }
+                if (developerMode) log.debug("Finished deleting all values from query " + q);
             }
 
             while (true) {
@@ -135,12 +147,14 @@ public abstract class Theo0Base implements Theo0 {
                 // Have to save generalizations for last
                 if (slot.getName().equals("generalizations") && sit.hasNext())
                     slot = sit.next();
+                if (developerMode) log.debug("deleteEntity(" + entity + ") recursing into subslot " + slot);
                 if (deleteEntity(entity.getQuery(slot)))
                     deletedSomething = true;
             }
 
             if (entity.isBelief()) {
                 Belief b = entity.toBelief();
+                if (developerMode) log.debug("deleteEntity used for direct belief delete of " + b);
                 b.getBeliefQuery().deleteValue(b.getBeliefValue());
             }
             return deletedSomething;
