@@ -1334,6 +1334,68 @@ public class BasicTheo2 extends Theo2Base implements Theo2 {
         }
     }
 
+    @Override public void renamePrimitiveEntity(PrimitiveEntity primitiveEntity, String newName) {
+        try {
+            // The actual default copy-then-delete implementation need not be altered because the
+            // net effect won't violate any Theo Layer 2 constraints.  However, as a follow-up step,
+            // we have to update our caches if anything in them had been renamed.
+            if (!(primitiveEntity instanceof MyPrimitiveEntity))
+                throw new RuntimeException("Given entity must be of type "
+                        + MyPrimitiveEntity.class.getName() + ", not "
+                        + primitiveEntity.getClass().getName());
+            t1.renamePrimitiveEntity(((MyPrimitiveEntity)primitiveEntity).wrappedEntity.toPrimitiveEntity(),
+                    newName);
+            String oldName = primitiveEntity.getName();
+            if (primitiveEntity.isSlot()) {
+                Boolean b = nrofvaluesCache.get(oldName);
+                if (b != null) {
+                    nrofvaluesCache.put(newName, b);
+                    nrofvaluesCache.remove(oldName);
+                }
+                String s = domainCache.get(oldName);
+                if (s != null) {
+                    domainCache.put(newName, s);
+                    domainCache.remove(oldName);
+                }
+                RTWValue v = rangeCache.get(oldName);
+                if (v != null) {
+                    rangeCache.put(newName, v);
+                    rangeCache.remove(oldName);
+                }
+            }
+            
+            // And also have to run through all of domain and range in case this entity was the
+            // domain or range value of one or more slots.
+            List<String> slots = null;
+            for (String slot : domainCache.keySet()) {
+                if (domainCache.get(slot).equals(oldName)) {
+                    if (slots == null) slots = new ArrayList<String>();
+                    slots.add(slot);
+                }
+            }
+            if (slots != null)
+                for (String slot : slots) domainCache.put(slot, newName);
+
+            if (slots != null) slots.clear();
+            for (String slot : rangeCache.keySet()) {
+                RTWValue v = rangeCache.get(slot);
+                if (v instanceof Entity)
+                    if (((Entity)v).isPrimitiveEntity())
+                        if (((Entity)v).toPrimitiveEntity().getName().equals(oldName)) {
+                            if (slots == null) slots = new ArrayList<String>();
+                            slots.add(slot);
+                        }
+            }
+            if (slots != null) {
+                PrimitiveEntity newPE = getPrimitiveEntity(newName);
+                for (String slot : slots) rangeCache.put(slot, newPE);
+            }
+        } catch (Exception e) { 
+            throw new RuntimeException("copyEntityRecursively(" + primitiveEntity + ", \""
+                    + newName + "\")", e); 
+        }
+    }
+
     @Override public RTWValue ioctl(String syscall, RTWValue params) {
         try {
             return t1.ioctl(syscall, params);

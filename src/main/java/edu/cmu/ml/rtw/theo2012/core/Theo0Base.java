@@ -449,6 +449,95 @@ public abstract class Theo0Base implements Theo0 {
     }
 
     /**
+     * Default implementation uses a copy-then-delete approach<p>
+     *
+     * This is legitimate for Theo Layer 0 or 1 because we don't have to be concerned with possibly
+     * temporarily violating nrofvalues during the period of time when both the original and the
+     * ocpy both exist.
+     */
+    @Override public void renamePrimitiveEntity(PrimitiveEntity primitiveEntity, String newName) {
+        try {
+            if (!primitiveEntity.entityExists())
+                throw new RuntimeException(primitiveEntity
+                        + " does not exist and therefore cannot be renamed");
+            PrimitiveEntity dst = getPrimitiveEntity(newName);
+            if (dst.entityExists())
+                throw new RuntimeException(primitiveEntity + " cannot be renamed because "
+                        + dst + " already exists");
+            copyEntityRecursively(primitiveEntity, dst, primitiveEntity, dst); 
+            deleteEntity(primitiveEntity);
+        } catch (Exception e) { 
+            throw new RuntimeException("copyEntityRecursively(" + primitiveEntity + ", \""
+                    + newName + "\")", e); 
+        } 
+    }
+
+    /** 
+     * Internal helper method for {@link renamePrimitiveEntity}<p> 
+     */ 
+    protected void copyEntityRecursively(Entity src, Entity dst, PrimitiveEntity srcPE, PrimitiveEntity dstPE) { 
+        try { 
+            // Special handling when src is a Primitive Entity to make sure dst exists before any 
+            // further copying. 
+            if (src.isPrimitiveEntity()) { 
+                for (RTWValue gen : src.getQuery("generalizations").iter()) 
+                    dst.addValue("generalizations", gen); 
+            } 
+ 
+            // Oddball special case if src is a Belief.  This is semantically puzzling. 
+            else if (src.isBelief()) { 
+                throw new RuntimeException("src may not be a Belief"); 
+            } 
+ 
+            // If src is a Query, then dst must be a Query and we copy all values from one slot to 
+            // the other. 
+            // 
+            // 2017-12-18: One of the values might be src or some subpart of src (e.g. the Primitive 
+            // Entity).  If we copy this blindly then we will wind up modifying dst, resulting in a 
+            // concurrent modification error.  The solution here is to translate an occurrence of a 
+            // src-based entity into a dst-based one.  If we don't do this, then not only do we wind 
+            // up modifying what we're iterating over, but also we fail to adequately support the 
+            // entity renaming operation that this method is meant to support. 
+            // 
+            // Upon recognizing this problem, it becomes apparent that a recursive copy is not 
+            // really semantically appropriate for implmenting the entity renaming operation used by 
+            // ConceptRenamer / RTWRenameCommand.  Furthermore, it's implementationally inconvenient 
+            // to be fully general about detecting cases where a value is based in part or in whole 
+            // on src.  So as a band-aid sufficient for NELL, we leave things as they already are 
+            // and support only the limited case where the primitive entity upon wich a value is 
+            // based is the same primitive entity upon which src is based; NELL does not store 
+            // compisite entity values.  Should this method be used where a composite entity might 
+            // need to be translated, we'll just hope it results in a concurrent modification 
+            // exception to warn the end user that he is doing something beyond the abilities of 
+            // this method. 
+            // 
+            else if (src.isQuery()) { 
+                if (!dst.isQuery()) 
+                    throw new RuntimeException("If src is a Belief then dst must be a Query"); 
+                Query srcq = src.toQuery(); 
+                Query dstq = dst.toQuery(); 
+                for (RTWValue v : srcq.iter()) { 
+                    Belief srcb = srcq.getBelief(v); 
+                    RTWValue dstv = v; 
+                    if (dstv.equals(srcPE)) dstv = dstPE; 
+                                
+                    Belief dstb = dstq.addValueAndGetBelief(dstv); 
+                    for (Slot s : srcb.getSlots()) 
+                        copyEntityRecursively(srcb.getQuery(s), dstb.getQuery(s), srcPE, dstPE); 
+                } 
+            } 
+ 
+            // Now we can recurse into all slots attached to src 
+            for (Slot s : src.getSlots()) 
+                copyEntityRecursively(src.getQuery(s), dst.getQuery(s), srcPE, dstPE); 
+        } catch (Exception e) { 
+            throw new RuntimeException("copyEntityRecursively(" + src + ", " + dst + ", " + srcPE 
+                    + ", " + dstPE + ")", e); 
+        } 
+    } 
+
+
+    /**
      * Default of no-op for every operation
      */
     @Override public RTWValue ioctl(String syscall, RTWValue params) {

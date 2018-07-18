@@ -221,6 +221,23 @@ public interface Theo0 {
     public PrimitiveEntity createPrimitiveEntity(String name, Entity generalization);
 
     /**
+     * Changes the name of an existing primitive entity.<p>
+     *
+     * An exception will be thrown if a primitive entity by the new name already exists.<p>
+     *
+     * This somewhat obscure operation exists mainly because there is no good general and efficient
+     * way to implemented at Theo Layer 2 or higher as a copy-and-delete operation because the
+     * nrofvalues constraint can lead to a situation where both the source and destination assertion
+     * cannot exist simultaneously, and would therefore require the use of a separate temporary Theo
+     * KB or other complicated scalable secondary storage mechanism.  Having this as a low-level
+     * atomic operation also makes it straightforward to be extremely efficient when the underlying
+     * storage mechanism could implement this by changing a name in a table or something of that
+     * nature rather than having to copy and modify a potentially large number of slots and
+     * values.<p>
+     */
+    public void renamePrimitiveEntity(PrimitiveEntity primitiveEntity, String newName);
+
+    /**
      * Catch-all acess method for operations not directly to do with Theo at a theoretical level<p>
      *
      * The fundamental idea here is to add a single method to the API that could be used to add any
